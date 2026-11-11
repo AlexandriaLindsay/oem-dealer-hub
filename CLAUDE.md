@@ -56,6 +56,11 @@ Phase 2 (billing and launch) has started:
 - **Turnstile:** `App\Support\Turnstile::check()` in register, login and forgot-password. A bad token is refused; if Cloudflare is unreachable the request goes through.
 - **Phase 2 is done in code.** Before launch: company details, retention, refunds and liability in the legal texts, plus a lawyer's review.
 
+Phase 3 (commercial) has started. The owner chose it over Azure (no Azure work for now; see memory).
+
+- **Price lists:** `PriceList` / `PriceListItem` (`item_type` model|option, `price_cents`). `App\Support\Money` turns typed prices into cents and back; the API returns prices as "1234.50" strings, null = price on request. `PriceList::forDealer()` gives a dealer's own list or the default. `CatalogController` never lets a dealer see another list, or any list's name. `DealerLink.price_list_id` is set only through `PriceListController::assign` (it isn't fillable).
+- **Next in Phase 3:** quotes (snapshot prices from the dealer's list), then parts orders.
+
 The other option is the Phase 0 leftovers above. The Azure Blob driver for documents and a ClamAV server belong with the Azure deploy.
 
 UI changes get checked in a real browser: headless Edge with `puppeteer-core` against a throwaway API (port 8011) and Vite (5174) on a scratch SQLite database, never the owner's dev servers or data.

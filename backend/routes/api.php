@@ -3,12 +3,14 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LegalController;
 use App\Http\Controllers\Api\Tenant\BillingController;
+use App\Http\Controllers\Api\Tenant\CatalogController;
 use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
 use App\Http\Controllers\Api\Tenant\DocumentController;
 use App\Http\Controllers\Api\Tenant\FleetController;
 use App\Http\Controllers\Api\Tenant\MachineController;
 use App\Http\Controllers\Api\Tenant\MachineImportController;
+use App\Http\Controllers\Api\Tenant\PriceListController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
@@ -97,6 +99,16 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->whereNumber('document')->middleware('feature:manage_documents');
             Route::get('/documents/{document}/file', [DocumentController::class, 'file'])->whereNumber('document')->middleware('feature:documents');
             Route::get('/machines/{machine}/documents', [DocumentController::class, 'forMachine'])->middleware('feature:documents');
+
+            Route::get('/catalog', CatalogController::class)->middleware('feature:catalog');
+            Route::get('/price-lists', [PriceListController::class, 'index'])->middleware('feature:manage_pricing');
+            Route::post('/price-lists', [PriceListController::class, 'store'])->middleware('feature:manage_pricing');
+            Route::get('/price-lists/{priceList}', [PriceListController::class, 'show'])->whereNumber('priceList')->middleware('feature:manage_pricing');
+            Route::post('/price-lists/{priceList}', [PriceListController::class, 'update'])->whereNumber('priceList')->middleware('feature:manage_pricing');
+            Route::post('/price-lists/{priceList}/prices', [PriceListController::class, 'prices'])->middleware('feature:manage_pricing');
+            Route::post('/price-lists/{priceList}/default', [PriceListController::class, 'makeDefault'])->middleware('feature:manage_pricing');
+            Route::delete('/price-lists/{priceList}', [PriceListController::class, 'destroy'])->whereNumber('priceList')->middleware('feature:manage_pricing');
+            Route::post('/dealers/{link}/price-list', [PriceListController::class, 'assign'])->middleware('feature:manage_pricing');
 
             Route::get('/fleet', [FleetController::class, 'summary'])->middleware('feature:fleet_report');
             Route::get('/fleet/export', [FleetController::class, 'export'])->middleware('feature:fleet_report');

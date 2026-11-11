@@ -8,6 +8,8 @@ use App\Models\EndUser;
 use App\Models\Machine;
 use App\Models\MachineImport;
 use App\Models\Manufacturer;
+use App\Models\PriceList;
+use App\Models\PriceListItem;
 use App\Models\ProductLine;
 use App\Models\ProductModel;
 use App\Models\ProductOption;
@@ -346,6 +348,58 @@ class TenantIsolationTest extends TestCase
 
         $this->assertSame(2, EndUser::withoutTenant()->count());
         $this->assertSame(1, Tenant::run($acme, fn () => EndUser::count()));
+    }
+
+    // ---- Price lists ----
+
+    public function test_price_lists_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $boltModel = $this->productModel($bolt, 'B-72');
+        $boltList = Tenant::run($bolt, function () use ($boltModel) {
+            $list = PriceList::create(['name' => 'Bolt secret prices', 'currency' => 'USD']);
+            $list->forceFill(['is_default' => true])->save();
+            $list->items()->create(['item_type' => 'model', 'item_id' => $boltModel->id, 'price_cents' => 777700]);
+
+            return $list;
+        });
+        $acmeLink = $this->link($this->dealer('Acme Dealer', $acme), $acme);
+        $user = $this->staff($acme);
+
+        $this->actingAs($user)->getJson('/api/m/acme/price-lists')->assertOk()->assertJsonCount(0);
+        $this->actingAs($user)->getJson("/api/m/acme/price-lists/{$boltList->id}")->assertNotFound();
+        $this->actingAs($user)->getJson("/api/m/acme/catalog?price_list={$boltList->id}")->assertJsonPath('price_list', null);
+        $this->actingAs($user)->postJson("/api/m/acme/price-lists/{$boltList->id}/prices", ['prices' => [['type' => 'model', 'id' => $boltModel->id, 'price' => '1']]])->assertNotFound();
+        $this->actingAs($user)->deleteJson("/api/m/acme/price-lists/{$boltList->id}")->assertNotFound();
+        // Can't put an Acme dealer on Bolt's list, or price Bolt's model on an Acme list.
+        $this->actingAs($user)->postJson("/api/m/acme/dealers/{$acmeLink->id}/price-list", ['price_list_id' => $boltList->id])
+            ->assertUnprocessable()->assertJsonValidationErrors('price_list_id');
+        $acmeList = $this->actingAs($user)->postJson('/api/m/acme/price-lists', ['name' => 'Acme', 'currency' => 'USD'])->json('id');
+        $this->actingAs($user)->postJson("/api/m/acme/price-lists/{$acmeList}/prices", ['prices' => [['type' => 'model', 'id' => $boltModel->id, 'price' => '1']]])
+            ->assertUnprocessable()->assertJsonValidationErrors('prices.0.id');
+
+        $this->assertSame(777700, (int) PriceListItem::withoutTenant()->where('price_list_id', $boltList->id)->value('price_cents'));
+        $this->assertSame(1, PriceListItem::withoutTenant()->count());
+    }
+
+    public function test_a_dealer_at_two_brands_sees_each_brands_own_prices(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $prairie = $this->dealer('Prairie Equipment', $acme, $bolt);
+        foreach ([[$acme, 'S-400', 4850000], [$bolt, 'B-72', 320000]] as [$m, $model, $cents]) {
+            $pm = $this->productModel($m, $model);
+            Tenant::run($m, function () use ($pm, $cents) {
+                $list = PriceList::create(['name' => 'Dealers', 'currency' => 'USD']);
+                $list->forceFill(['is_default' => true])->save();
+                $list->items()->create(['item_type' => 'model', 'item_id' => $pm->id, 'price_cents' => $cents]);
+            });
+        }
+        $user = $this->dealerUser($prairie);
+
+        $this->actingAs($user)->getJson('/api/m/acme/catalog')->assertJsonPath('lines.0.models.0.name', 'S-400')->assertJsonPath('lines.0.models.0.price', '48500.00');
+        $this->actingAs($user)->getJson('/api/m/bolt/catalog')->assertJsonPath('lines.0.models.0.name', 'B-72')->assertJsonPath('lines.0.models.0.price', '3200.00');
     }
 
     // ---- Billing ----

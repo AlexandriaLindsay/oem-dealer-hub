@@ -22,4 +22,10 @@ class DealerLink extends Model
     {
         return $this->belongsTo(Dealer::class);
     }
+
+    /** The dealer's own price list; null means they buy from the default (PriceList::forDealer). */
+    public function priceList(): BelongsTo
+    {
+        return $this->belongsTo(PriceList::class);
+    }
 }

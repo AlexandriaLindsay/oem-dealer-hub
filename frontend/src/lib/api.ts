@@ -150,6 +150,8 @@ export interface DealerRow {
   dealer_id: number
   name: string
   dealer_code: string | null
+  /** Their own price list; null = the default. */
+  price_list_id: number | null
   status: string
   city: string | null
   region: string | null
@@ -313,4 +315,32 @@ export interface Billing {
   usage: { dealers: number; staff: number; storage_gb: number }
   configured: boolean
   plans: BillingPlan[]
+}
+
+export interface PriceListSummary {
+  id: number
+  name: string
+  currency: 'USD' | 'CAD'
+  is_default: boolean
+  notes: string | null
+  items_count: number | null
+  dealers_count: number | null
+  updated_at: string | null
+}
+
+/** Prices are strings like "1234.50" (exact cents from the API); null = price on request. */
+export interface CatalogLine {
+  id: number
+  name: string
+  models: { id: number; name: string; category: string | null; price: string | null; options: { id: number; name: string; price: string | null }[] }[]
+}
+
+export interface PriceListDetail extends PriceListSummary {
+  lines: CatalogLine[]
+}
+
+export interface Catalog {
+  /** Dealers get only the currency; staff also the list's name. */
+  price_list: { id?: number; name?: string; currency: 'USD' | 'CAD'; is_default?: boolean } | null
+  lines: CatalogLine[]
 }

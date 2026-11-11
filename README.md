@@ -100,6 +100,14 @@ Phase 2 (billing and launch), in progress:
 - [x] Cloudflare Turnstile on sign-up, sign-in and password reset (skipped locally without keys; required in production)
 - [ ] Before launch: fill in the company details, decide the retention periods, refund policy, price-change notice, liability wording and hosting region, and have a lawyer review both texts
 
+Phase 3 (commercial), in progress:
+
+- [x] Price lists: USD or CAD, a price per model and option (stored in cents), a default list, dealers assigned to lists, copying a list. Starter includes 1 list (counted in the downgrade check).
+- [x] Prices page: each dealer sees only their own list (or the default), never another dealer's or the list's name. Unpriced items show "Price on request".
+- [ ] Quotes: build from the dealer's prices, history
+- [ ] Parts orders
+- [ ] Territories, broadcasts, usage analytics (Pro)
+
 ## Billing
 
 **Where an account stands** (`App\Support\Plan::standing`):

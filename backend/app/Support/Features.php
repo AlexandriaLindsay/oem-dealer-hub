@@ -81,6 +81,15 @@ final class Features
             'label' => 'Add and change manuals and documents',
             'roles' => ['owner', 'admin', 'warranty', 'parts'],
         ],
+        // Prices: a dealer sees only the one list that applies to them (CatalogController).
+        'catalog' => [
+            'label' => 'Prices',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'warranty', 'finance', 'parts', 'dealer_admin', 'dealer_user'],
+        ],
+        'manage_pricing' => [
+            'label' => 'Price lists',
+            'roles' => ['owner', 'admin', 'finance'],
+        ],
         'dealers' => [
             'label' => 'Dealer network',
             'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],

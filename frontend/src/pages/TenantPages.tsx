@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, ApiError, MACHINE_STATUSES, type DealerRow, type ProductModelRow } from '../lib/api'
+import { api, ApiError, MACHINE_STATUSES, type DealerRow, type PriceListSummary, type ProductModelRow } from '../lib/api'
 import { useApi } from '../lib/useApi'
 import { useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
@@ -245,6 +245,19 @@ export function DealersPage() {
   const [adding, setAdding] = useState(false)
   const canManage = !!current?.features.includes('manage_dealers')
   const [statusError, setStatusError] = useState<string | null>(null)
+  const canPrice = !!current?.features.includes('manage_pricing')
+  const priceLists = useApi<PriceListSummary[]>(canPrice ? `/m/${slug}/price-lists` : null)
+
+  /** Which price list a dealer buys from ('' = the default). */
+  async function setPriceList(d: DealerRow, value: string) {
+    setStatusError(null)
+    try {
+      await api.post(`/m/${slug}/dealers/${d.id}/price-list`, { price_list_id: value ? Number(value) : null })
+      reload()
+    } catch (e) {
+      setStatusError(e instanceof ApiError ? e.message : 'Could not reach DealerDock.')
+    }
+  }
 
   /** Suspend: they can't sign in to this brand, and stop counting toward the plan. Reactivating must fit the plan. */
   async function setStatus(d: DealerRow, status: 'active' | 'suspended') {
@@ -311,6 +324,7 @@ export function DealersPage() {
                 <th>Code</th>
                 <th>Location</th>
                 <th>Status</th>
+                {canPrice && priceLists.data && priceLists.data.length > 0 && <th>Price list</th>}
                 {current?.features.includes('machines') && <th>Machines</th>}
                 {canManage && (
                   <th>
@@ -328,6 +342,21 @@ export function DealersPage() {
                   <td>
                     <span className={`badge badge-${d.status}`}>{d.status}</span>
                   </td>
+                  {canPrice && priceLists.data && priceLists.data.length > 0 && (
+                    <td>
+                      <label className="sr-only" htmlFor={`pl-${d.id}`}>
+                        Price list for {d.name}
+                      </label>
+                      <select id={`pl-${d.id}`} className="compact-select" value={d.price_list_id && d.price_list_id !== priceLists.data.find((l) => l.is_default)?.id ? d.price_list_id : ''} onChange={(e) => setPriceList(d, e.target.value)}>
+                        {priceLists.data.map((l) => (
+                          <option key={l.id} value={l.is_default ? '' : l.id}>
+                            {l.name}
+                            {l.is_default ? ' (default)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  )}
                   {current?.features.includes('machines') && (
                     <td>
                       <Link to={`../machines?dealer=${d.id}`} relative="path">

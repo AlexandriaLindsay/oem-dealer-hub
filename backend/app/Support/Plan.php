@@ -109,7 +109,7 @@ final class Plan
      * limit it's over. Empty when it can. A downgrade never silently cuts off
      * dealers or staff: they have to be under the limit first.
      *
-     * @param  array{dealers: int, staff: int, storage_gb: float}  $usage
+     * @param  array{dealers: int, staff: int, storage_gb: float, price_lists?: int}  $usage
      * @return list<string>
      */
     public static function blockers(string $plan, array $usage): array
@@ -126,6 +126,9 @@ final class Plan
         }
         if ($limits['storage_gb'] !== null && $usage['storage_gb'] > $limits['storage_gb']) {
             $reasons[] = "You're using {$usage['storage_gb']} GB of file storage; $label includes {$limits['storage_gb']} GB.";
+        }
+        if ($limits['price_lists'] !== null && ($usage['price_lists'] ?? 0) > $limits['price_lists']) {
+            $reasons[] = "You have {$usage['price_lists']} price lists; $label includes {$limits['price_lists']}. Delete the ones you don't need first - their dealers go back to the default list.";
         }
 
         return $reasons;

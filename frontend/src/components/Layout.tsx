@@ -13,6 +13,8 @@ const NAV: { to: string; label: string; feature: string }[] = [
   { to: 'registrations', label: 'Registrations', feature: 'registrations' },
   { to: 'fleet', label: 'Fleet report', feature: 'fleet_report' },
   { to: 'documents', label: 'Manuals', feature: 'documents' },
+  // Price lists (manage_pricing) are reached from the Prices page.
+  { to: 'prices', label: 'Prices', feature: 'catalog' },
   { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },
   { to: 'staff', label: 'Staff', feature: 'manage_staff' },

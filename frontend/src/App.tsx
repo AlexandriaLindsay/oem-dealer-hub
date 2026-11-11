@@ -11,6 +11,7 @@ import { LibraryPage } from './pages/LibraryPages'
 import { ImportPage } from './pages/ImportPage'
 import { SettingsPage } from './pages/SetupPages'
 import { BillingPage } from './pages/BillingPage'
+import { CatalogPage, PriceListPage, PriceListsPage } from './pages/PricingPages'
 import { LandingPage, PricingPage } from './pages/PublicPages'
 import { AcceptTermsPage, PrivacyPage, TermsPage } from './pages/LegalPages'
 
@@ -114,6 +115,9 @@ export default function App() {
             <Route path="staff" element={<StaffPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="billing" element={<BillingPage />} />
+            <Route path="prices" element={<CatalogPage />} />
+            <Route path="price-lists" element={<PriceListsPage />} />
+            <Route path="price-lists/:id" element={<PriceListPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

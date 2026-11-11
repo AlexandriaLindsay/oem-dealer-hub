@@ -8,6 +8,8 @@ use App\Models\Document;
 use App\Models\Machine;
 use App\Models\Manufacturer;
 use App\Models\Membership;
+use App\Models\PriceList;
+use App\Models\PriceListItem;
 use App\Models\ProductLine;
 use App\Models\ProductModel;
 use App\Models\ProductOption;
@@ -125,12 +127,17 @@ class DatabaseSeeder extends Seeder
 
             $this->registrations($owner, $moved);
             $this->library($owner, ['S-400' => $s400, 'S-600' => $s600, 'R-200' => $r200]);
+            $this->priceLists(['S-400' => $s400, 'S-600' => $s600, 'R-200' => $r200], $acmePrairie);
         });
 
         Tenant::run($bolt, function () use ($boltPrairie) {
             $line = ProductLine::where('name', 'Buckets')->first();
             $model = ProductModel::create(['product_line_id' => $line->id, 'name' => 'B-72 Bucket']);
             Machine::add(['product_model_id' => $model->id, 'serial_no' => 'BB72-0001'], $boltPrairie, null);
+
+            $list = PriceList::create(['name' => 'Dealer prices', 'currency' => 'USD']);
+            $list->forceFill(['is_default' => true])->save();
+            $list->items()->create(['item_type' => PriceListItem::MODEL, 'item_id' => $model->id, 'price_cents' => 320000]);
         });
     }
 
@@ -166,6 +173,38 @@ class DatabaseSeeder extends Seeder
             'kind' => 'bill_of_sale', 'original_name' => 'Hill Farms bill of sale.pdf', 'path' => $path, 'mime' => 'application/pdf',
             'size' => strlen($pdf), 'sha256' => hash('sha256', $pdf), 'scan_status' => ScanResult::NOT_SCANNED, 'uploaded_by' => $dealer->id,
         ]);
+    }
+
+    /**
+     * Acme's prices: a US list (the default) and a Canadian one in CAD, which
+     * Prairie (in Manitoba) buys from. One option is left unpriced on the CAD
+     * list - it shows as "price on request". Runs inside Tenant::run(Acme).
+     *
+     * @param  array<string, ProductModel>  $models
+     */
+    private function priceLists(array $models, DealerLink $canadian): void
+    {
+        $us = PriceList::create(['name' => 'US dealers', 'currency' => 'USD', 'notes' => '2027 model year.']);
+        $us->forceFill(['is_default' => true])->save();
+        $ca = PriceList::create(['name' => 'Canadian dealers', 'currency' => 'CAD', 'notes' => 'Prices in Canadian dollars.']);
+
+        // model => [USD, CAD]; options of the S-400 => [USD, CAD|null]
+        $prices = ['S-400' => [48500, 66000], 'S-600' => [63900, 87000], 'R-200' => [18750, 25500]];
+        $options = ['Hydraulic tilt' => [2150, 2950], 'Laser-ready mast' => [3400, 4650], 'Wide tires' => [1275, null]];
+
+        foreach ($prices as $model => [$usd, $cad]) {
+            $us->items()->create(['item_type' => PriceListItem::MODEL, 'item_id' => $models[$model]->id, 'price_cents' => $usd * 100]);
+            $ca->items()->create(['item_type' => PriceListItem::MODEL, 'item_id' => $models[$model]->id, 'price_cents' => $cad * 100]);
+        }
+        foreach ($models['S-400']->options as $option) {
+            [$usd, $cad] = $options[$option->name];
+            $us->items()->create(['item_type' => PriceListItem::OPTION, 'item_id' => $option->id, 'price_cents' => $usd * 100]);
+            if ($cad !== null) {
+                $ca->items()->create(['item_type' => PriceListItem::OPTION, 'item_id' => $option->id, 'price_cents' => $cad * 100]);
+            }
+        }
+
+        $canadian->forceFill(['price_list_id' => $ca->id])->save();
     }
 
     /**

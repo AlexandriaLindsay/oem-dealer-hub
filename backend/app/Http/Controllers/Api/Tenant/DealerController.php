@@ -100,6 +100,8 @@ class DealerController extends Controller
             'dealer_id' => $link->dealer_id,
             'name' => $link->dealer->name,
             'dealer_code' => $link->dealer_code,
+            // null: buys from the default list.
+            'price_list_id' => $link->price_list_id,
             'status' => $link->status,
             'city' => $link->dealer->city,
             'region' => $link->dealer->region,
