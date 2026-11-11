@@ -239,3 +239,39 @@ export interface SerialLookup {
   machine: { serial_no: string; model: string; product_line: string }
   documents: LibraryDocument[]
 }
+
+export type ImportAction = 'create' | 'update' | 'unchanged' | 'skip' | 'error'
+
+export interface ImportSummary {
+  rows: number
+  create: number
+  update: number
+  unchanged: number
+  skip: number
+  error: number
+}
+
+export interface ImportRow {
+  /** The row number in the person's spreadsheet. */
+  line: number
+  serial: string
+  action: ImportAction
+  messages: string[]
+  changes: { field: string; from: string | null; to: string | null }[]
+}
+
+export interface ImportPreview {
+  file_name: string
+  columns: { used: { field: string; header: string }[]; ignored: string[] }
+  summary: ImportSummary
+  rows: ImportRow[]
+}
+
+export interface ImportRecord {
+  id: number
+  file_name: string
+  mode: 'add' | 'add_update'
+  by: string | null
+  at: string | null
+  summary: ImportSummary
+}

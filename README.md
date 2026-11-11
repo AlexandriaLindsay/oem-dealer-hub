@@ -88,7 +88,7 @@ Phase 1 (MVP), in progress:
 - [x] Product registration: dealers register a sale or rental with the customer and documents; the manufacturer approves (machine becomes sold or rental, customer becomes an end user) or rejects with a reason; both sides get an email
 - [x] Manuals library: manuals, parts books and bulletins linked to models and serial ranges, found by serial number, staff-only documents hidden from dealers
 - [ ] Azure Blob storage driver for documents (see "Uploads" below)
-- [ ] CSV import of existing machines, with an audit report
+- [x] Machine import from CSV or Excel: a preview that writes nothing, then the import (rows with problems are left out), recorded with every row's outcome and an Excel audit report. Re-importing is safe: blank cells never clear anything, and a machine's model is never changed.
 - [ ] Onboarding tour
 
 ## Uploads

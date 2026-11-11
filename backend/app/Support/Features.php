@@ -44,6 +44,11 @@ final class Features
             'label' => 'Add machines and move them between dealers',
             'roles' => ['owner', 'admin', 'inside_sales'],
         ],
+        // Bulk adds and changes machines from a spreadsheet - the people who set the account up.
+        'import_machines' => [
+            'label' => 'Import machines from a spreadsheet',
+            'roles' => ['owner', 'admin'],
+        ],
         // Every dealer's machines at once, and the Excel export - so staff only.
         'fleet_report' => [
             'label' => 'Fleet report and export',

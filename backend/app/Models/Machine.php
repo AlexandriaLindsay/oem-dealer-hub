@@ -84,14 +84,20 @@ class Machine extends Model
             });
     }
 
-    /** Adds a machine and its first history entry. */
-    public static function add(array $attributes, ?DealerLink $link, ?User $by, ?string $note = null): self
+    /**
+     * Adds a machine and its first history entry.
+     *
+     * $stampShipped: a machine added straight to a dealer is marked shipped
+     * today - unless it's history being imported, where "today" would be wrong
+     * and an unknown date stays unknown.
+     */
+    public static function add(array $attributes, ?DealerLink $link, ?User $by, ?string $note = null, bool $stampShipped = true): self
     {
-        return DB::transaction(function () use ($attributes, $link, $by, $note) {
+        return DB::transaction(function () use ($attributes, $link, $by, $note, $stampShipped) {
             $machine = new self($attributes);
             $machine->status = $attributes['status'] ?? 'inventory';
             $machine->dealer_link_id = $link?->id;
-            if ($link && ! $machine->shipped_at) {
+            if ($link && $stampShipped && ! $machine->shipped_at) {
                 $machine->shipped_at = now();
             }
             $machine->save();

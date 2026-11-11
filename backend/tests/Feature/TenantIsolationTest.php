@@ -6,6 +6,7 @@ use App\Models\DealerLink;
 use App\Models\Document;
 use App\Models\EndUser;
 use App\Models\Machine;
+use App\Models\MachineImport;
 use App\Models\Manufacturer;
 use App\Models\ProductLine;
 use App\Models\ProductModel;
@@ -345,6 +346,49 @@ class TenantIsolationTest extends TestCase
 
         $this->assertSame(2, EndUser::withoutTenant()->count());
         $this->assertSame(1, Tenant::run($acme, fn () => EndUser::count()));
+    }
+
+    // ---- Machine imports ----
+
+    public function test_an_import_only_sees_its_own_manufacturers_models_dealers_and_machines(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $this->productModel($acme, 'S-400');
+        $this->productModel($bolt, 'B-72');
+        $boltLink = $this->link($this->dealer('Bolt Only Dealer', $bolt), $bolt);
+        Tenant::run($bolt, fn () => $boltLink->update(['dealer_code' => 'BOLT-D1']));
+        $boltMachine = $this->machine($bolt, 'SHARED-1', $boltLink, 'sold');
+        $user = $this->staff($acme);
+
+        $post = fn (string $csv, string $mode = 'add_update') => $this->actingAs($user)->post('/api/m/acme/machines/import', [
+            'file' => UploadedFile::fake()->createWithContent('fleet.csv', $csv), 'mode' => $mode,
+        ], ['Accept' => 'application/json']);
+
+        $rows = $post("Serial,Model,Dealer\nX-1,B-72,\nX-2,S-400,BOLT-D1\nX-3,S-400,Bolt Only Dealer\nSHARED-1,S-400,\n")
+            ->assertCreated()->json('rows');
+
+        // Bolt's model and dealer don't exist here; Bolt's serial is a new machine here.
+        $this->assertSame(['error', 'error', 'error', 'create'], array_column($rows, 'action'));
+        $this->assertSame('sold', Machine::withoutTenant()->find($boltMachine->id)->status);
+        $this->assertSame($bolt->id, Machine::withoutTenant()->find($boltMachine->id)->manufacturer_id);
+        $this->assertSame(1, Tenant::run($acme, fn () => Machine::count()));
+    }
+
+    public function test_import_history_and_reports_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $boltImport = Tenant::run($bolt, fn () => MachineImport::create([
+            'file_name' => 'bolt-secret.csv', 'sha256' => str_repeat('0', 64), 'mode' => 'add', 'rows_total' => 1,
+            'created_count' => 1, 'updated_count' => 0, 'unchanged_count' => 0, 'skipped_count' => 0, 'failed_count' => 0,
+            'results' => [['line' => 2, 'serial' => 'BOLT-1', 'action' => 'create', 'messages' => [], 'changes' => []]],
+        ]));
+        $user = $this->staff($acme);
+
+        $this->actingAs($user)->getJson('/api/m/acme/machine-imports')->assertOk()->assertJsonCount(0);
+        $this->actingAs($user)->get("/api/m/acme/machine-imports/{$boltImport->id}/report")->assertNotFound();
+        $this->actingAs($user)->get("/api/m/bolt/machine-imports/{$boltImport->id}/report")->assertNotFound();
     }
 
     // ---- Document library ----

@@ -8,6 +8,7 @@ import { MachinePage, MachinesPage } from './pages/MachinePages'
 import { FleetPage } from './pages/FleetPage'
 import { RegistrationPage, RegistrationsPage } from './pages/RegistrationPages'
 import { LibraryPage } from './pages/LibraryPages'
+import { ImportPage } from './pages/ImportPage'
 
 /** Signed out -> sign in; no two-factor yet -> set it up; otherwise the page. */
 function RequireAuth({ children, allowWithoutTwoFactor = false }: { children: ReactNode; allowWithoutTwoFactor?: boolean }) {
@@ -77,6 +78,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="machines" element={<MachinesPage />} />
+            <Route path="machines/import" element={<ImportPage />} />
             <Route path="machines/:id" element={<MachinePage />} />
             <Route path="fleet" element={<FleetPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />

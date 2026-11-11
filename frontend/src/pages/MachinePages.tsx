@@ -70,11 +70,18 @@ export function MachinesPage() {
     <>
       <div className="page-head">
         <h1>{isDealer ? 'Your machines' : 'Machines'}</h1>
-        {canAdd && !adding && (
-          <button className="primary" onClick={() => setAdding(true)} disabled={models.length === 0} title={models.length === 0 ? 'Add a model under Products first' : undefined}>
-            Add machine
-          </button>
-        )}
+        <span className="head-actions">
+          {current?.features.includes('import_machines') && !adding && (
+            <Link to="import" className="button-secondary">
+              Import from a spreadsheet
+            </Link>
+          )}
+          {canAdd && !adding && (
+            <button className="primary" onClick={() => setAdding(true)} disabled={models.length === 0} title={models.length === 0 ? 'Add a model under Products first' : undefined}>
+              Add machine
+            </button>
+          )}
+        </span>
       </div>
 
       {isDealer && <p className="lede">The {current?.name} machines at {current?.dealer?.name} right now. Keep each one's status up to date as it moves through demo, rental and sale.</p>}

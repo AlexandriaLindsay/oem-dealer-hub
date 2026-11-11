@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Tenant\DealerController;
 use App\Http\Controllers\Api\Tenant\DocumentController;
 use App\Http\Controllers\Api\Tenant\FleetController;
 use App\Http\Controllers\Api\Tenant\MachineController;
+use App\Http\Controllers\Api\Tenant\MachineImportController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
@@ -44,7 +45,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/machines', [MachineController::class, 'index'])->middleware('feature:machines');
         Route::post('/machines', [MachineController::class, 'store'])->middleware('feature:manage_machines');
-        Route::get('/machines/{machine}', [MachineController::class, 'show'])->middleware('feature:machines');
+        // Before /machines/{machine}, so "import" isn't taken as an id.
+        Route::get('/machines/import/template', [MachineImportController::class, 'template'])->middleware('feature:import_machines');
+        Route::post('/machines/import/preview', [MachineImportController::class, 'preview'])->middleware(['feature:import_machines', 'throttle:uploads']);
+        Route::post('/machines/import', [MachineImportController::class, 'store'])->middleware(['feature:import_machines', 'throttle:uploads']);
+        Route::get('/machine-imports', [MachineImportController::class, 'index'])->middleware('feature:import_machines');
+        Route::get('/machine-imports/{import}/report', [MachineImportController::class, 'report'])->middleware('feature:import_machines');
+
+        Route::get('/machines/{machine}', [MachineController::class, 'show'])->whereNumber('machine')->middleware('feature:machines');
         Route::post('/machines/{machine}/status', [MachineController::class, 'updateStatus'])->middleware('feature:machine_status');
         Route::post('/machines/{machine}/transfer', [MachineController::class, 'transfer'])->middleware('feature:manage_machines');
 

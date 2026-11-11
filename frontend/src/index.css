@@ -233,6 +233,20 @@ input[type='file'] { padding: 0.4rem; }
 .cover-range input { width: 9.5rem; padding: 0.35rem 0.55rem; }
 .danger-link { color: var(--danger); margin-left: auto; }
 
+/* ---- Machine import ---- */
+.head-actions { display: inline-flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; justify-content: flex-end; }
+.button-secondary { display: inline-block; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.9rem; font-weight: 600; text-decoration: none; }
+.columns-help { margin: 0.25rem 0 1rem; }
+.columns-help summary, .import-rows summary { cursor: pointer; color: var(--accent); margin-bottom: 0.5rem; }
+.columns-help th { white-space: nowrap; color: var(--text); font-size: 0.9rem; }
+.import-tiles { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); margin-bottom: 1rem; }
+.import-tiles .tile-value { font-size: 1.4rem; }
+.tile-problem { border-color: var(--danger); }
+.tile-problem .tile-label { color: var(--danger); }
+.import-rows { margin: 1rem 0; }
+.import-rows summary { font-weight: 600; }
+.import-go { margin-top: 1.25rem; }
+
 /* ---- Fleet report ---- */
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; vertical-align: baseline; }
 .is-refreshing { opacity: 0.55; transition: opacity 0.15s; }
