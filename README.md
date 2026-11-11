@@ -44,6 +44,8 @@ Local development uses SQLite (`backend/database/database.sqlite`); production u
 
 Password reset and invite emails go to `backend/storage/logs/laravel.log` locally (`MAIL_MAILER=log`).
 
+Broadcast emails are **queued** (sending to hundreds of dealers shouldn't hold up the page). To deliver them locally, run a worker in a third terminal: `cd backend && php artisan queue:work`. Without one, they wait in the `jobs` table.
+
 ## Tests
 
 ```bash
@@ -106,7 +108,8 @@ Phase 3 (commercial), in progress:
 - [x] Prices page: each dealer sees only their own list (or the default), never another dealer's or the list's name. Unpriced items show "Price on request".
 - [x] Quotes: dealers build them for customers from their own prices (model, options, quantity, their own lines, price overrides, a discount), numbered per dealer (Q-1001…), draft → sent → won/lost, locked once sent, copy, printable page. Prices are copied in, so later price changes never alter a sent quote. Sales staff can read every dealer's quotes; dealers see only their own.
 - [x] Parts orders: dealers order by part number (or paste lines from a spreadsheet), with PO, machine serial, shipping and ship-to; the parts desk works an oldest-first queue: start → shipped (carrier, tracking) or cancelled (with a reason), and everyone gets an email. No prices: there's no parts price list yet, so the parts desk invoices as it does today.
-- [ ] Territories, broadcasts, usage analytics (Pro)
+- [x] Broadcasts (Pro): announcements to all or chosen dealers, optionally emailed (queued); recipients fixed when sent; read tracking per person; withdraw. Dealers read them under Announcements.
+- [ ] Territories, usage analytics, own subdomain and colours (Pro, marked "coming soon" until built)
 
 ## Billing
 

@@ -16,6 +16,8 @@ interface Dashboard {
   product_lines: number
   machines: Record<string, number>
   registrations_pending: number
+  /** Dealers: announcements this person hasn't opened. */
+  announcements_unread?: number
 }
 
 const USAGE_LABELS: Record<string, string> = { dealers: 'Dealers', staff: 'Staff users', storage_gb: 'File storage (GB)' }
@@ -66,6 +68,12 @@ export function DashboardPage() {
         <h1>{current?.name}</h1>
         <p className="lede">You're signed in as {current?.dealer?.name}, a dealer for {current?.name}.</p>
         <div className="tiles">
+          {!!data.announcements_unread && (
+            <Link className="tile tile-link tile-news" to="announcements">
+              <span className="tile-label">New announcements from {current?.name}</span>
+              <span className="tile-value">{data.announcements_unread}</span>
+            </Link>
+          )}
           <PendingTile count={data.registrations_pending} dealer />
         </div>
         <MachineTiles counts={data.machines} />

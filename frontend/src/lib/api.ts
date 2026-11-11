@@ -438,3 +438,29 @@ export interface PartsOrderPage {
   page: number
   last_page: number
 }
+
+export interface BroadcastRow {
+  id: number
+  title: string
+  sent_at: string | null
+  sent_by: string | null
+  recipients_count?: number
+  /** Dealers where at least one person has opened it. */
+  read_by_dealers?: number
+}
+
+export interface BroadcastDetail extends BroadcastRow {
+  body: string
+  audience: 'all' | 'selected'
+  emailed: boolean
+  withdrawn_at: string | null
+  recipients: { dealer_link_id: number; dealer: string; read_by: { name: string | null; at: string }[] }[]
+}
+
+export interface Announcement {
+  id: number
+  title: string
+  excerpt: string
+  sent_at: string | null
+  read: boolean
+}

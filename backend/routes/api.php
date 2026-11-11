@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LegalController;
 use App\Http\Controllers\Api\Tenant\BillingController;
+use App\Http\Controllers\Api\Tenant\BroadcastController;
 use App\Http\Controllers\Api\Tenant\CatalogController;
 use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
@@ -116,6 +117,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/parts-orders/{order}', [PartsOrderController::class, 'show'])->whereNumber('order')->middleware('feature:parts_orders');
             Route::post('/parts-orders/{order}/status', [PartsOrderController::class, 'update'])->middleware('feature:manage_parts_orders');
             Route::post('/parts-orders/{order}/cancel', [PartsOrderController::class, 'cancel'])->middleware('feature:order_parts');
+
+            Route::get('/broadcasts', [BroadcastController::class, 'index'])->middleware('feature:broadcasts');
+            Route::post('/broadcasts', [BroadcastController::class, 'store'])->middleware(['feature:broadcasts', 'throttle:uploads']);
+            Route::get('/broadcasts/{broadcast}', [BroadcastController::class, 'show'])->middleware('feature:broadcasts');
+            Route::post('/broadcasts/{broadcast}/withdraw', [BroadcastController::class, 'withdraw'])->middleware('feature:broadcasts');
+            Route::get('/announcements', [BroadcastController::class, 'announcements'])->middleware('feature:announcements');
+            Route::get('/announcements/{broadcast}', [BroadcastController::class, 'announcement'])->middleware('feature:announcements');
 
             Route::get('/catalog', CatalogController::class)->middleware('feature:catalog');
             Route::get('/price-lists', [PriceListController::class, 'index'])->middleware('feature:manage_pricing');

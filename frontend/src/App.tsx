@@ -14,6 +14,7 @@ import { BillingPage } from './pages/BillingPage'
 import { CatalogPage, PriceListPage, PriceListsPage } from './pages/PricingPages'
 import { QuotePage, QuotePrintPage, QuotesPage } from './pages/QuotePages'
 import { NewPartsOrderPage, PartsOrderPage, PartsOrdersPage } from './pages/PartsOrderPages'
+import { AnnouncementPage, AnnouncementsPage, BroadcastPage, BroadcastsPage } from './pages/BroadcastPages'
 import { LandingPage, PricingPage } from './pages/PublicPages'
 import { AcceptTermsPage, PrivacyPage, TermsPage } from './pages/LegalPages'
 
@@ -123,6 +124,10 @@ export default function App() {
             <Route path="parts-orders" element={<PartsOrdersPage />} />
             <Route path="parts-orders/new" element={<NewPartsOrderPage />} />
             <Route path="parts-orders/:id" element={<PartsOrderPage />} />
+            <Route path="broadcasts" element={<BroadcastsPage />} />
+            <Route path="broadcasts/:id" element={<BroadcastPage />} />
+            <Route path="announcements" element={<AnnouncementsPage />} />
+            <Route path="announcements/:id" element={<AnnouncementPage />} />
             <Route path="price-lists" element={<PriceListsPage />} />
             <Route path="price-lists/:id" element={<PriceListPage />} />
           </Route>

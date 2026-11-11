@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Broadcast;
 use App\Models\Dealer;
 use App\Models\DealerLink;
 use App\Models\Document;
@@ -210,6 +211,27 @@ class DatabaseSeeder extends Seeder
 
         $this->quotes($canadian, $models, $ca);
         $this->partsOrders($canadian);
+        $this->broadcasts($canadian);
+    }
+
+    /** Two announcements: one to every dealer, one only to Northern (so Prairie sees just the first). */
+    private function broadcasts(DealerLink $prairie): void
+    {
+        $owner = User::where('email', 'owner@acme.test')->first();
+        $all = DealerLink::where('status', DealerLink::ACTIVE)->pluck('id');
+        $northern = $all->reject(fn ($id) => $id === $prairie->id);
+
+        $messages = [
+            [Broadcast::ALL, $all, 'S-400 cutting edge changes March 1', "From March 1 the S-400 ships with the new 8 ft cutting edge (AS4-1102B).\n\nThe old edge stays available for machines in the field while stock lasts. The updated parts book is under Manuals.", 6],
+            [Broadcast::SELECTED, $northern, 'North Dakota farm show booth', "We've reserved booth 14 at the Red River Valley Farm Show. Bring your demo S-600 if you can.", 2],
+        ];
+        foreach ($messages as [$audience, $links, $title, $body, $daysAgo]) {
+            $b = new Broadcast(['title' => $title, 'body' => $body, 'audience' => $audience, 'emailed' => true]);
+            $b->forceFill(['sent_by' => $owner->id, 'created_at' => now()->subDays($daysAgo)])->save();
+            foreach ($links as $id) {
+                $b->recipients()->create(['dealer_link_id' => $id]);
+            }
+        }
     }
 
     /** Prairie's parts orders: one shipped, one being prepared, one rush order just in. Inside Tenant::run(Acme). */

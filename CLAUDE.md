@@ -64,7 +64,9 @@ Phase 3 (commercial) has started. The owner chose it over Azure (no Azure work f
 - A stored file that's gone missing returns a 404 with a log warning (`Uploads::abortIfMissing`), not a 500.
 - **Parts orders:** `PartsOrder` (dealer-scoped, numbered per manufacturer from 1001, `PartsOrder::MOVES`) and `PartsOrderLine` (part number in upper case, quantity, no prices). Dealers order (`order_parts`); the parts desk is owner, admin and parts (`manage_parts_orders`); inside sales can read. A dealer can cancel only while the order is `submitted`.
 - **Preview runs** set `DEALERDOCK_DOCUMENTS_ROOT` to the scratchpad. Never delete anything under `backend/storage`.
-- **Next in Phase 3:** the Pro features marked "coming soon" (territories, broadcasts, usage analytics, own subdomain and colours). When each ships, remove its `'coming' => true` in `Features::LIST`.
+- **Broadcasts (Pro):** `Broadcast` (its own dealer scope: only broadcasts sent to the dealer's link and not withdrawn), `BroadcastRecipient` (fixed at send), `BroadcastRead` (per user; create through `$broadcast->reads()`, since `broadcast_id` isn't fillable). Emails go out as `BroadcastSent`, a queued notification built from plain values. Staff use `broadcasts`; dealers use `announcements` (not plan-gated, so old ones stay readable after a downgrade).
+- Watch for mass-assignment: a column missing from `$fillable` is silently dropped (it bit `DealerLink.price_list_id` and `BroadcastRead.broadcast_id`). Set such columns through a relation or `forceFill`, and assert the stored value in tests.
+- **Next in Phase 3:** the remaining Pro features marked "coming soon" (territories, usage analytics, own subdomain and colours). When each ships, remove its `'coming' => true` in `Features::LIST`.
 
 The other option is the Phase 0 leftovers above. The Azure Blob driver for documents and a ClamAV server belong with the Azure deploy.
 

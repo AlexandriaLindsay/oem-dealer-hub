@@ -113,6 +113,12 @@ final class Features
             'label' => 'Work the parts order queue',
             'roles' => ['owner', 'admin', 'parts'],
         ],
+        // Reading the broadcasts sent to them (Broadcast's dealer scope). Not plan-gated:
+        // a dealer can still read what was sent before a manufacturer moved to Starter.
+        'announcements' => [
+            'label' => 'Announcements',
+            'roles' => ['dealer_admin', 'dealer_user'],
+        ],
         'dealers' => [
             'label' => 'Dealer network',
             'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],
@@ -138,7 +144,7 @@ final class Features
         // them "coming soon" wherever plans are described (pricing, billing),
         // so nobody pays for something that isn't there yet - remove it when a
         // feature ships.
-        'broadcasts' => ['label' => 'Broadcasts to your dealers', 'roles' => ['owner', 'admin', 'inside_sales'], 'coming' => true],
+        'broadcasts' => ['label' => 'Broadcasts to your dealers', 'roles' => ['owner', 'admin', 'inside_sales']],
         'usage_analytics' => ['label' => 'Usage analytics', 'roles' => ['owner', 'admin'], 'coming' => true],
         'territories' => ['label' => 'Territories', 'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'], 'coming' => true],
         'custom_branding' => ['label' => 'Own subdomain and colours', 'roles' => ['owner', 'admin'], 'coming' => true],

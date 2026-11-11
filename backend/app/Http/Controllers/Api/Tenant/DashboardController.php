@@ -26,6 +26,8 @@ class DashboardController extends Controller
                 'machines' => self::machinesByStatus(),
                 // Their own, waiting for the manufacturer (Registration's dealer scope).
                 'registrations_pending' => Registration::where('status', Registration::PENDING)->count(),
+                // Announcements sent to their dealership that this person hasn't opened.
+                'announcements_unread' => BroadcastController::unreadCount((int) request()->user()->id),
             ]);
         }
 

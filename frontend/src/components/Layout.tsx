@@ -17,6 +17,8 @@ const NAV: { to: string; label: string; feature: string }[] = [
   { to: 'prices', label: 'Prices', feature: 'catalog' },
   { to: 'quotes', label: 'Quotes', feature: 'quotes' },
   { to: 'parts-orders', label: 'Parts orders', feature: 'parts_orders' },
+  { to: 'announcements', label: 'Announcements', feature: 'announcements' },
+  { to: 'broadcasts', label: 'Broadcasts', feature: 'broadcasts' },
   { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },
   { to: 'staff', label: 'Staff', feature: 'manage_staff' },

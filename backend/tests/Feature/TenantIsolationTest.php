@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Broadcast;
 use App\Models\DealerLink;
 use App\Models\Document;
 use App\Models\EndUser;
@@ -483,6 +484,32 @@ class TenantIsolationTest extends TestCase
         $this->assertSame('submitted', PartsOrder::withoutTenant()->find($boltOrder)->status);
         // Each manufacturer numbers its own orders.
         $this->assertSame(1001, PartsOrder::withoutTenant()->find($boltOrder)->number);
+    }
+
+    // ---- Broadcasts ----
+
+    public function test_broadcasts_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $shared = $this->dealer('Prairie Equipment', $acme, $bolt);
+        $boltOnly = $this->link($this->dealer('Bolt Only Dealer', $bolt), $bolt);
+        $boltBroadcast = $this->actingAs($this->staff($bolt))->postJson('/api/m/bolt/broadcasts', ['title' => 'Bolt secret', 'body' => 'x', 'audience' => 'all'])->json('id');
+        $acmeOwner = $this->staff($acme);
+        $dealerUser = $this->dealerUser($shared);
+
+        // Acme can't see or withdraw Bolt's, or send to Bolt's dealer.
+        $this->actingAs($acmeOwner)->getJson('/api/m/acme/broadcasts')->assertJsonCount(0);
+        $this->actingAs($acmeOwner)->getJson("/api/m/acme/broadcasts/{$boltBroadcast}")->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/broadcasts/{$boltBroadcast}/withdraw")->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson('/api/m/acme/broadcasts', ['title' => 'x', 'body' => 'y', 'audience' => 'selected', 'dealer_link_ids' => [$boltOnly->id]])
+            ->assertUnprocessable()->assertJsonValidationErrors('dealer_link_ids.0');
+
+        // A dealer at both brands sees Bolt's announcement under Bolt only.
+        $this->actingAs($dealerUser)->getJson('/api/m/bolt/announcements')->assertJsonCount(1);
+        $this->actingAs($dealerUser)->getJson('/api/m/acme/announcements')->assertJsonCount(0);
+        $this->actingAs($dealerUser)->getJson("/api/m/acme/announcements/{$boltBroadcast}")->assertNotFound();
+        $this->assertNull(Broadcast::withoutTenant()->find($boltBroadcast)->withdrawn_at);
     }
 
     // ---- Billing ----
