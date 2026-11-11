@@ -5,6 +5,7 @@ import { useApi } from '../lib/useApi'
 import { useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
 import { AddForm, Loading } from '../components/AddForm'
+import { GettingStarted } from './SetupPages'
 
 // ---- Dashboard ----
 
@@ -80,6 +81,7 @@ export function DashboardPage() {
       <p className="lede">
         {data.plan?.label} plan{trialDays !== null && data.plan?.key === 'trial' && <> · {trialDays} days left in your trial</>}
       </p>
+      <GettingStarted />
       <div className="tiles">
         {Object.entries(data.usage ?? {}).map(([key, u]) => (
           <div className="tile" key={key}>

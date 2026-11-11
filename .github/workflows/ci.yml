@@ -15,7 +15,8 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo_sqlite, mbstring, intl
+          # gd: tests make images (logo uploads); zip: Excel files are zips.
+          extensions: pdo_sqlite, mbstring, intl, gd, zip
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: cp .env.example .env && php artisan key:generate

@@ -59,6 +59,30 @@ class DatabaseSeeder extends Seeder
         $this->member('dealer@prairie.test', 'Pat Dealer', Membership::DEALER, $prairie->id, 'dealer_admin');
 
         $this->machines($acme, $bolt, $acmePrairie, $acmeNorthern, $boltPrairie);
+
+        // Acme is fully set up (logo and all), so its checklist is gone; Bolt
+        // is part way, so its owner sees "Getting started" on the dashboard.
+        Tenant::run($acme, fn () => $this->logo($acme));
+    }
+
+    /** A plain wordmark PNG, drawn here so the demo needs no image files. */
+    private function logo(Manufacturer $manufacturer): void
+    {
+        if (! function_exists('imagecreatetruecolor')) {
+            return; // no GD: the demo just goes without a logo
+        }
+
+        $image = imagecreatetruecolor(240, 60);
+        imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
+        imagefilledrectangle($image, 0, 0, 60, 60, imagecolorallocate($image, 200, 70, 30));
+        imagestring($image, 5, 76, 22, strtoupper($manufacturer->name), imagecolorallocate($image, 30, 30, 30));
+        ob_start();
+        imagepng($image);
+        $png = (string) ob_get_clean();
+
+        $path = $manufacturer->id.'/branding/'.Str::uuid().'.png';
+        Uploads::disk()->put($path, $png);
+        $manufacturer->forceFill(['logo_path' => $path, 'logo_mime' => 'image/png', 'logo_updated_at' => now()])->save();
     }
 
     /** Models and machines: some at each dealer, some still at the factory, and a transfer in the history. */

@@ -10,7 +10,9 @@ use App\Http\Controllers\Api\Tenant\MachineImportController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
+use App\Http\Controllers\Api\Tenant\SetupController;
 use App\Http\Controllers\Api\Tenant\StaffController;
+use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,10 +33,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:auth');
     Route::delete('/two-factor', [TwoFactorController::class, 'disable'])->middleware('throttle:auth');
 
+    Route::post('/tours/{key}/seen', [TourController::class, 'seen']);
+
     // Everything inside one manufacturer. ResolveTenant checks the user works
     // there and scopes every tenant-owned query to it.
     Route::prefix('m/{tenant}')->middleware(['two-factor', 'tenant'])->group(function () {
         Route::get('/dashboard', DashboardController::class)->middleware('feature:dashboard');
+
+        Route::get('/onboarding', [SetupController::class, 'onboarding'])->middleware('feature:setup');
+        Route::post('/onboarding', [SetupController::class, 'dismiss'])->middleware('feature:setup');
+        // Everyone who works with the brand sees its logo - dealers too.
+        Route::get('/logo', [SetupController::class, 'logo']);
+        Route::post('/logo', [SetupController::class, 'storeLogo'])->middleware(['feature:setup', 'throttle:uploads']);
+        Route::delete('/logo', [SetupController::class, 'destroyLogo'])->middleware('feature:setup');
 
         Route::get('/product-lines', [ProductLineController::class, 'index'])->middleware('feature:products');
         Route::post('/product-lines', [ProductLineController::class, 'store'])->middleware('feature:manage_products');

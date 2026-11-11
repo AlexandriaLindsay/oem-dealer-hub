@@ -133,6 +133,8 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'two_factor' => $user->hasTwoFactor(),
                 'two_factor_required' => (bool) config('dealerdock.require_two_factor'),
+                // Tour keys this person has finished or skipped (Tours).
+                'tours_seen' => array_keys($user->tours_seen ?? []),
             ],
             'manufacturers' => Access::for($user)->map(fn ($c) => Access::describe($c))->values(),
         ]);

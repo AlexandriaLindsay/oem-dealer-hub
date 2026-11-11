@@ -79,7 +79,7 @@ Phase 0 (foundation) - see [docs/PLAN.md](docs/PLAN.md) section 7.
 - [ ] Filament console for DealerDock staff
 - [ ] Azure: deployment slots, OIDC deploys, MySQL, Blob storage
 
-Phase 1 (MVP), in progress:
+Phase 1 (MVP), done:
 
 - [x] Products: models within product lines, and options per model
 - [x] Machines by serial number, with statuses (inventory, demo, rental, sold, used), a dealer (or still at the factory) and a history of every change
@@ -89,7 +89,7 @@ Phase 1 (MVP), in progress:
 - [x] Manuals library: manuals, parts books and bulletins linked to models and serial ranges, found by serial number, staff-only documents hidden from dealers
 - [ ] Azure Blob storage driver for documents (see "Uploads" below)
 - [x] Machine import from CSV or Excel: a preview that writes nothing, then the import (rows with problems are left out), recorded with every row's outcome and an Excel audit report. Re-importing is safe: blank cells never clear anything, and a machine's model is never changed.
-- [ ] Onboarding tour
+- [x] Onboarding: a "Getting started" checklist that ticks itself from real data, the manufacturer's logo (PNG/JPG, scanned, shown to staff and dealers), and a guided tour for manufacturers and for dealers. Tours are versioned (`App\Support\Tours`), so a big feature can get a "What's new" tour later.
 
 ## Uploads
 

@@ -76,6 +76,7 @@ final class Access
             'slug' => $m->slug,
             'plan' => $m->plan,
             'trial_ends_at' => $m->trial_ends_at?->toIso8601String(),
+            'logo_url' => $m->logoUrl(),
             'acting_as' => $context['link'] ? 'dealer' : 'manufacturer',
             'dealer' => $context['link'] ? ['id' => $context['link']->dealer_id, 'name' => $context['membership']->dealer?->name] : null,
             'role' => $context['membership']->role,

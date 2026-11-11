@@ -30,6 +30,7 @@ class User extends Authenticatable
             'two_factor_secret' => 'encrypted',
             'two_factor_confirmed_at' => 'datetime',
             'is_platform_staff' => 'boolean',
+            'tours_seen' => 'array',
         ];
     }
 

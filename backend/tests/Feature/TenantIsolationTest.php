@@ -348,6 +348,30 @@ class TenantIsolationTest extends TestCase
         $this->assertSame(1, Tenant::run($acme, fn () => EndUser::count()));
     }
 
+    // ---- Onboarding and logo ----
+
+    public function test_onboarding_and_the_logo_stay_inside_their_manufacturer(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $this->machine($bolt, 'BOLT-1', $this->link($this->dealer('Bolt Dealer', $bolt), $bolt));
+        $bolt->forceFill(['logo_path' => $bolt->id.'/branding/logo.png', 'logo_mime' => 'image/png', 'logo_updated_at' => now()])->save();
+        Storage::disk('documents')->put($bolt->id.'/branding/logo.png', 'bolt logo');
+        $user = $this->staff($acme);
+
+        // Bolt's machines and dealers don't tick Acme's steps.
+        $steps = collect($this->actingAs($user)->getJson('/api/m/acme/onboarding')->json('steps'))->pluck('done', 'key');
+        $this->assertFalse($steps['machines']);
+        $this->assertFalse($steps['dealers']);
+
+        // Acme has no logo; Bolt's isn't reachable from Acme.
+        $this->actingAs($user)->get('/api/m/acme/logo')->assertNotFound();
+        $this->actingAs($user)->get('/api/m/bolt/logo')->assertNotFound();
+        $this->actingAs($user)->deleteJson('/api/m/bolt/logo')->assertNotFound();
+        Storage::disk('documents')->assertExists($bolt->id.'/branding/logo.png');
+    }
+
     // ---- Machine imports ----
 
     public function test_an_import_only_sees_its_own_manufacturers_models_dealers_and_machines(): void

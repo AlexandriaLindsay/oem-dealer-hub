@@ -9,6 +9,7 @@ import { FleetPage } from './pages/FleetPage'
 import { RegistrationPage, RegistrationsPage } from './pages/RegistrationPages'
 import { LibraryPage } from './pages/LibraryPages'
 import { ImportPage } from './pages/ImportPage'
+import { SettingsPage } from './pages/SetupPages'
 
 /** Signed out -> sign in; no two-factor yet -> set it up; otherwise the page. */
 function RequireAuth({ children, allowWithoutTwoFactor = false }: { children: ReactNode; allowWithoutTwoFactor?: boolean }) {
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="documents" element={<LibraryPage />} />
             <Route path="dealers" element={<DealersPage />} />
             <Route path="staff" element={<StaffPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

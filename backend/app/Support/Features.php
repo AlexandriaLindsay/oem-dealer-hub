@@ -89,6 +89,11 @@ final class Features
             'label' => 'Add and edit dealers',
             'roles' => ['owner', 'admin'],
         ],
+        // The "Getting started" checklist and the logo.
+        'setup' => [
+            'label' => 'Company setup and logo',
+            'roles' => ['owner', 'admin'],
+        ],
         'manage_staff' => [
             'label' => 'Staff and access',
             'roles' => ['owner', 'admin'],

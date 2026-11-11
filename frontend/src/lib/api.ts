@@ -77,6 +77,8 @@ export interface ManufacturerAccess {
   slug: string
   plan: 'trial' | 'starter' | 'pro'
   trial_ends_at: string | null
+  /** The manufacturer's logo (an API path with a version), or null. */
+  logo_url: string | null
   acting_as: 'manufacturer' | 'dealer'
   dealer: { id: number; name: string } | null
   role: string
@@ -90,6 +92,8 @@ export interface Me {
     email: string
     two_factor: boolean
     two_factor_required: boolean
+    /** Guided tours this person has finished or skipped. */
+    tours_seen: string[]
   }
   manufacturers: ManufacturerAccess[]
 }
