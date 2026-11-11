@@ -44,6 +44,11 @@ final class Features
             'label' => 'Add machines and move them between dealers',
             'roles' => ['owner', 'admin', 'inside_sales'],
         ],
+        // Every dealer's machines at once, and the Excel export - so staff only.
+        'fleet_report' => [
+            'label' => 'Fleet report and export',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'warranty', 'finance', 'parts'],
+        ],
         // Dealers keep their own stock's status current (demo, rental, sold...).
         'machine_status' => [
             'label' => 'Change a machine\'s status',

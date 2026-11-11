@@ -14,6 +14,17 @@
   --ok-soft: #e6f4ec;
   --radius: 8px;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+  /*
+   * Machine statuses - categorical slots 1-5, in this order, validated for
+   * colour-blind separation against this surface (light and dark both pass).
+   * Three light steps sit under 3:1 on white, so every chart ships a legend
+   * and a table view. *-ink is text set inside the colour.
+   */
+  --status-inventory: #2a78d6; --status-inventory-ink: #ffffff;
+  --status-demo: #eb6834; --status-demo-ink: #ffffff;
+  --status-rental: #1baf7a; --status-rental-ink: #ffffff;
+  --status-sold: #eda100; --status-sold-ink: #0b0b0b;
+  --status-used: #e87ba4; --status-used-ink: #ffffff;
   color-scheme: light;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 15px;
@@ -36,6 +47,11 @@
     --ok: #6fdc9f;
     --ok-soft: #12291d;
     --shadow: none;
+    --status-inventory: #3987e5;
+    --status-demo: #d95926;
+    --status-rental: #199e70;
+    --status-sold: #c98500; --status-sold-ink: #ffffff;
+    --status-used: #d55181;
     color-scheme: dark;
   }
 }
@@ -125,10 +141,8 @@ tbody tr:last-child td { border-bottom: 0; }
 .badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize; }
 .badge-active { background: var(--ok-soft); color: var(--ok); }
 .badge-suspended { background: var(--accent-soft); color: var(--muted); }
-/* Machine statuses: still to sell (neutral), out working (accent), done (green). */
-.badge-inventory, .badge-used { background: var(--border); color: var(--text); }
-.badge-demo, .badge-rental { background: var(--accent-soft); color: var(--accent); }
-.badge-sold { background: var(--ok-soft); color: var(--ok); }
+/* Machine statuses: a neutral pill with the status's swatch (the colour key the charts use). */
+.badge-status { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-weight: 500; }
 h1 .badge { vertical-align: middle; margin-left: 0.4rem; font-size: 0.85rem; }
 
 /* ---- Products, machines ---- */
@@ -164,6 +178,55 @@ td .inline-form { margin: 0.4rem 0 0; }
 .history-summary { font-weight: 600; }
 .history-note { font-style: italic; }
 
+/* ---- Fleet report ---- */
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; vertical-align: baseline; }
+.is-refreshing { opacity: 0.55; transition: opacity 0.15s; }
+.kpis { display: grid; grid-template-columns: minmax(200px, 1.4fr) repeat(3, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.hero { display: flex; flex-direction: column; justify-content: flex-end; gap: 0.2rem; padding: 0.25rem 0; }
+.hero-value { font-size: 3.25rem; font-weight: 700; line-height: 1; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; padding: 0; margin: 0.75rem 0; font-size: 0.85rem; color: var(--muted); }
+.legend li { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+/* One whole split by status - a tall segmented bar (28px), 2px surface gaps between blocks. */
+.split { display: flex; gap: 2px; height: 28px; }
+.split-part { display: flex; align-items: center; padding: 0 0.5rem; min-width: 0; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+.chart-card { position: relative; }
+.chart-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.chart-head h2 { margin: 0; }
+.toggle { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.toggle button { background: var(--surface); color: var(--muted); border: 0; padding: 0.3rem 0.75rem; font-size: 0.85rem; }
+.toggle button.is-on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* Stacked horizontal bars: 20px bars, 4px rounded data-end, square at the baseline. */
+.bars { position: relative; --name-w: 180px; }
+.bars-axis { position: relative; height: 1.2rem; margin-left: calc(var(--name-w) + 0.75rem); margin-right: 3rem; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bars-axis span { position: absolute; transform: translateX(-50%); }
+.bars-axis span:first-child { transform: none; }
+.bars-rows { list-style: none; padding: 0; margin: 0; }
+.bars-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.3rem 0; border-radius: var(--radius); }
+.bars-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bars-name { width: var(--name-w); flex: none; display: flex; flex-direction: column; font-size: 0.9rem; line-height: 1.25; overflow-wrap: anywhere; }
+.bars-name small { color: var(--muted); font-size: 0.78rem; }
+.bars-track { position: relative; flex: 1; display: flex; align-items: center; height: 28px; margin-right: 3rem; border-left: 1px solid var(--border); }
+.bars-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); opacity: 0.6; }
+.bars-bar { position: relative; display: flex; gap: 2px; height: 20px; min-width: 2px; }
+.bars-seg { min-width: 2px; height: 100%; }
+.bars-seg:last-child { border-radius: 0 4px 4px 0; }
+.bars-seg.is-hot { filter: brightness(1.12); }
+.bars-total { position: absolute; font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bars-more { margin: 0.5rem 0 0; font-size: 0.85rem; }
+table.numeric td:not(:first-child), table.numeric th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+.tooltip { position: absolute; z-index: 5; min-width: 170px; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 4px 16px rgb(0 0 0 / 0.14); padding: 0.55rem 0.7rem; font-size: 0.85rem; }
+.tooltip-title { font-weight: 600; margin-bottom: 0.3rem; }
+.tooltip-row { display: grid; grid-template-columns: 12px 2.5rem 1fr; align-items: center; gap: 0.4rem; color: var(--muted); }
+.tooltip-row strong { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+.tooltip-row.is-hot span:last-child { color: var(--text); font-weight: 600; }
+.tooltip-key { width: 12px; height: 2px; border-radius: 1px; }
+.tooltip-total { border-top: 1px solid var(--border); margin-top: 0.3rem; padding-top: 0.3rem; }
+.tooltip-total strong { grid-column: 2; }
+
 /* ---- Phone width ---- */
 @media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }
@@ -171,5 +234,9 @@ td .inline-form { margin: 0.4rem 0 0; }
   .sidenav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 0.5rem 16px; }
   .sidenav a { white-space: nowrap; }
   .content { padding: 1.25rem 16px; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .hero { grid-column: 1 / -1; }
+  .bars { --name-w: 96px; }
+  .bars-track, .bars-axis { margin-right: 2.25rem; }
   .auth-card { padding: 1.5rem; }
 }

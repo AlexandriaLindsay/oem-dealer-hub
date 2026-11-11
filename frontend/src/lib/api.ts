@@ -140,3 +140,40 @@ export interface DealerRow {
   region: string | null
   country: string | null
 }
+
+export const STATUS_LABELS: Record<MachineStatus, string> = {
+  inventory: 'Inventory',
+  demo: 'Demo',
+  rental: 'Rental',
+  sold: 'Sold',
+  used: 'Used',
+}
+
+export interface FleetSummary {
+  total: number
+  by_status: Record<MachineStatus, number>
+  by_dealer: { id: number | null; name: string; total: number; statuses: Record<MachineStatus, number> }[]
+  by_model: { id: number; name: string; line: string; total: number; statuses: Record<MachineStatus, number> }[]
+}
+
+/**
+ * Downloads a file from the API (signed in with the same session cookie) and
+ * hands it to the browser to save, under the name the API gives it.
+ */
+export async function download(path: string, fallbackName: string): Promise<void> {
+  const response = await fetch(`/api${path}`, { credentials: 'include', headers: { Accept: 'application/json, */*' } })
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.json().catch(() => ({})))
+  }
+
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const name = disposition.match(/filename="?([^";]+)"?/)?.[1] ?? fallbackName
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}

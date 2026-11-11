@@ -66,6 +66,39 @@ class Machine extends Model
         return $this->hasMany(MachineEvent::class)->orderByDesc('id');
     }
 
+    /** Validation rules for the filters filter() takes - the machine list, fleet report and export share them. */
+    public static function filterRules(): array
+    {
+        return [
+            'status' => ['nullable', 'in:'.implode(',', self::STATUSES)],
+            'line' => ['nullable', 'integer'],
+            'model' => ['nullable', 'integer'],
+            // A dealer link id, or "none" for machines still at the manufacturer.
+            'dealer' => ['nullable', 'string', 'max:20'],
+            'q' => ['nullable', 'string', 'max:80'],
+        ];
+    }
+
+    /**
+     * The machine list's filters, in one place, so the list, the fleet report
+     * and the export always agree on what "these machines" means.
+     */
+    public function scopeFilter(Builder $query, array $filters): void
+    {
+        $query
+            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            ->when($filters['model'] ?? null, fn ($q, $model) => $q->where('product_model_id', $model))
+            // Through ProductModel, so its own tenant scope applies to the lookup too.
+            ->when($filters['line'] ?? null, fn ($q, $line) => $q->whereIn('product_model_id', ProductModel::where('product_line_id', $line)->select('id')))
+            ->when($filters['dealer'] ?? null, fn ($q, $dealer) => $dealer === 'none'
+                ? $q->whereNull('dealer_link_id')
+                : $q->where('dealer_link_id', (int) $dealer))
+            ->when($filters['q'] ?? null, function ($q, $search) {
+                $like = '%'.addcslashes($search, '%_\\').'%';
+                $q->where(fn ($w) => $w->where('serial_no', 'like', $like)->orWhere('production_no', 'like', $like));
+            });
+    }
+
     /** Adds a machine and its first history entry. */
     public static function add(array $attributes, ?DealerLink $link, ?User $by, ?string $note = null): self
     {

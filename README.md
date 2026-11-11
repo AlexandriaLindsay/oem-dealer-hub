@@ -84,7 +84,7 @@ Phase 1 (MVP), in progress:
 - [x] Products: models within product lines, and options per model
 - [x] Machines by serial number, with statuses (inventory, demo, rental, sold, used), a dealer (or still at the factory) and a history of every change
 - [x] Staff add machines and move them between dealers; dealers see only their own machines and keep their status current
-- [ ] Fleet report: charts and Excel export across all dealers
+- [x] Fleet report: machines by status, dealer and model across all dealers, with the same filters as the machine list, and an Excel export (OpenSpout, streamed in chunks; text is always written as text, so nothing in a cell can run as a formula)
 - [ ] Product registration (sale and rental) with a review queue
 - [ ] Manuals library, searchable by serial number
 - [ ] CSV import of existing machines, with an audit report

@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { api, ApiError, MACHINE_STATUSES, type DealerRow, type MachineDetail, type MachinePage, type ProductModelRow } from '../lib/api'
+import { api, ApiError, MACHINE_STATUSES, type MachineStatus, type DealerRow, type MachineDetail, type MachinePage, type ProductModelRow } from '../lib/api'
 import { useApi } from '../lib/useApi'
 import { formatDate, formatDateTime, useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
 import { AddForm, Loading, type Option } from '../components/AddForm'
+import { Swatch } from '../components/charts'
 import { FormError } from '../components/Form'
 
 const STATUS_OPTIONS: Option[] = MACHINE_STATUSES.map((s) => ({ value: s, label: capitalize(s) }))
@@ -13,8 +14,14 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export function StatusBadge({ status }: { status: string }) {
-  return <span className={`badge badge-${status}`}>{status}</span>
+export function StatusBadge({ status }: { status: MachineStatus }) {
+  // Neutral pill with the status swatch: the same colour key as the fleet report charts.
+  return (
+    <span className="badge badge-status">
+      <Swatch status={status} />
+      {status}
+    </span>
+  )
 }
 
 /** Active dealers as select options - only staff who can see the dealer network get them. */
@@ -35,7 +42,7 @@ export function MachinesPage() {
   const [adding, setAdding] = useState(false)
 
   const query = new URLSearchParams()
-  for (const key of ['q', 'status', 'model', 'dealer', 'page']) {
+  for (const key of ['q', 'status', 'line', 'model', 'dealer', 'page']) {
     const value = params.get(key)
     if (value) query.set(key, value)
   }

@@ -24,25 +24,12 @@ class MachineController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'status' => ['nullable', Rule::in(Machine::STATUSES)],
-            // A dealer link id, or "none" for machines still at the manufacturer.
-            'dealer' => ['nullable', 'string', 'max:20'],
-            'model' => ['nullable', 'integer'],
-            'q' => ['nullable', 'string', 'max:80'],
+        $filters = $request->validate(Machine::filterRules() + [
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $query = Machine::with(['productModel.productLine', 'dealerLink.dealer'])
-            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
-            ->when($filters['model'] ?? null, fn ($q, $model) => $q->where('product_model_id', $model))
-            ->when($filters['dealer'] ?? null, fn ($q, $dealer) => $dealer === 'none'
-                ? $q->whereNull('dealer_link_id')
-                : $q->where('dealer_link_id', (int) $dealer))
-            ->when($filters['q'] ?? null, function ($q, $search) {
-                $like = '%'.addcslashes($search, '%_\\').'%';
-                $q->where(fn ($w) => $w->where('serial_no', 'like', $like)->orWhere('production_no', 'like', $like));
-            })
+            ->filter($filters)
             ->orderByDesc('id');
 
         $page = $query->paginate(self::PER_PAGE);

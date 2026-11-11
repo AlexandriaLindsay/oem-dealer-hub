@@ -228,6 +228,37 @@ class TenantIsolationTest extends TestCase
         $this->actingAs($user)->getJson('/api/m/bolt/machines')->assertJsonPath('total', 1)->assertJsonPath('data.0.serial_no', 'BOLT-1');
     }
 
+    public function test_the_fleet_report_and_export_only_cover_their_own_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $this->machine($acme, 'ACME-1');
+        $boltLink = $this->link($this->dealer('Bolt Only Dealer', $bolt), $bolt);
+        $boltModel = $this->machine($bolt, 'BOLT-SECRET-1', $boltLink)->product_model_id;
+        $user = $this->staff($acme);
+
+        $this->actingAs($user)->getJson('/api/m/acme/fleet')
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonCount(1, 'by_dealer')
+            ->assertJsonCount(1, 'by_model');
+        // Filtering by another manufacturer's dealer or model finds nothing.
+        $this->actingAs($user)->getJson("/api/m/acme/fleet?dealer={$boltLink->id}")->assertJsonPath('total', 0);
+        $this->actingAs($user)->getJson("/api/m/acme/fleet?model={$boltModel}")->assertJsonPath('total', 0);
+        $this->actingAs($user)->getJson('/api/m/bolt/fleet')->assertNotFound();
+        $this->actingAs($user)->get('/api/m/bolt/fleet/export')->assertNotFound();
+
+        $export = $this->actingAs($user)->get('/api/m/acme/fleet/export')->assertOk();
+        $path = $export->baseResponse->getFile()->getPathname();
+        $zip = new \ZipArchive;
+        $zip->open($path);
+        $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        $this->assertStringContainsString('ACME-1', $sheet);
+        $this->assertStringNotContainsString('BOLT', $sheet);
+    }
+
     public function test_a_dealer_never_learns_which_dealer_had_a_machine_before(): void
     {
         $acme = $this->manufacturer('acme');

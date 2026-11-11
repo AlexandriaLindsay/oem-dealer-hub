@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
+use App\Http\Controllers\Api\Tenant\FleetController;
 use App\Http\Controllers\Api\Tenant\MachineController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
@@ -44,6 +45,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/machines/{machine}', [MachineController::class, 'show'])->middleware('feature:machines');
         Route::post('/machines/{machine}/status', [MachineController::class, 'updateStatus'])->middleware('feature:machine_status');
         Route::post('/machines/{machine}/transfer', [MachineController::class, 'transfer'])->middleware('feature:manage_machines');
+
+        Route::get('/fleet', [FleetController::class, 'summary'])->middleware('feature:fleet_report');
+        Route::get('/fleet/export', [FleetController::class, 'export'])->middleware('feature:fleet_report');
 
         Route::get('/dealers', [DealerController::class, 'index'])->middleware('feature:dealers');
         Route::post('/dealers', [DealerController::class, 'store'])->middleware('feature:manage_dealers');
