@@ -9,15 +9,6 @@ import { Loading } from '../components/AddForm'
 
 type Interval = 'monthly' | 'annual'
 
-/** What Pro adds, in words (Plan::PLANS excludes for Starter). */
-const PRO_EXTRAS: Record<string, string> = {
-  broadcasts: 'Broadcasts to your dealers',
-  usage_analytics: 'Usage analytics',
-  territories: 'Territories',
-  custom_branding: 'Your own subdomain and colours',
-  erp_integration: 'ERP integration (quoted separately)',
-}
-
 function asApiError(e: unknown): ApiError {
   return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
 }
@@ -154,7 +145,12 @@ export function BillingPage() {
                     <li>{limitText(p.limits.staff, 'staff users')}</li>
                     <li>{p.limits.storage_gb} GB of file storage</li>
                     <li>Machines, fleet report, registrations, manuals</li>
-                    {p.excludes.length === 0 && Object.values(PRO_EXTRAS).map((x) => <li key={x}>{x}</li>)}
+                    {p.extras.map((x) => (
+                      <li key={x.label}>
+                        {x.label}
+                        {x.coming && <span className="coming"> - coming soon</span>}
+                      </li>
+                    ))}
                   </ul>
                   {p.blockers.length > 0 && (
                     <div className="plan-blockers">

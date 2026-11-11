@@ -95,9 +95,10 @@ Phase 2 (billing and launch), in progress:
 
 - [x] Billing with Stripe (Laravel Cashier): the manufacturer is the Stripe customer; Checkout to start, plan changes in the app (limits enforced), Stripe's portal for card, invoices and cancelling
 - [x] Trial, past-due and paused accounts, and suspending/reactivating dealers (only active dealers count toward a plan)
-- [ ] Landing page and pricing page
-- [ ] Privacy policy and terms, accepted at sign-up
-- [ ] Cloudflare Turnstile on sign-in and sign-up
+- [x] Landing page and pricing page (prices from `Plan` via `GET /api/site`; features not built yet say "coming soon")
+- [x] Privacy policy and terms, **drafts** with a visible "not yet reviewed" notice and [placeholders] for company details. Everyone agrees: the owner at sign-up, invited staff and dealers at first sign-in, everyone again when `DEALERDOCK_TERMS_VERSION` changes (enforced by the `terms` middleware)
+- [x] Cloudflare Turnstile on sign-up, sign-in and password reset (skipped locally without keys; required in production)
+- [ ] Before launch: fill in the company details, decide the retention periods, refund policy, price-change notice, liability wording and hosting region, and have a lawyer review both texts
 
 ## Billing
 

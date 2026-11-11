@@ -89,7 +89,11 @@ abstract class TestCase extends BaseTestCase
     protected function userWithTwoFactor(): User
     {
         $user = User::factory()->create();
-        $user->forceFill(['two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
+        // Two-factor set up, and the current terms agreed to - a user who's past every first-time step.
+        $user->forceFill([
+            'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now(),
+            'terms_version' => config('dealerdock.legal.version'), 'terms_accepted_at' => now(),
+        ])->save();
 
         return $user;
     }

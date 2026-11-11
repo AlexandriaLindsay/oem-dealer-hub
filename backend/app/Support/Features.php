@@ -102,12 +102,15 @@ final class Features
             'label' => 'Plan and billing',
             'roles' => ['owner'],
         ],
-        // Pro-only (Plan::PLANS excludes) - built in later phases.
-        'broadcasts' => ['label' => 'Broadcasts', 'roles' => ['owner', 'admin', 'inside_sales']],
-        'usage_analytics' => ['label' => 'Usage analytics', 'roles' => ['owner', 'admin']],
-        'territories' => ['label' => 'Territories', 'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales']],
-        'custom_branding' => ['label' => 'Own subdomain and branding', 'roles' => ['owner', 'admin']],
-        'erp_integration' => ['label' => 'ERP integration', 'roles' => ['owner', 'admin']],
+        // Pro-only (Plan::PLANS excludes), built in later phases. 'coming' marks
+        // them "coming soon" wherever plans are described (pricing, billing),
+        // so nobody pays for something that isn't there yet - remove it when a
+        // feature ships.
+        'broadcasts' => ['label' => 'Broadcasts to your dealers', 'roles' => ['owner', 'admin', 'inside_sales'], 'coming' => true],
+        'usage_analytics' => ['label' => 'Usage analytics', 'roles' => ['owner', 'admin'], 'coming' => true],
+        'territories' => ['label' => 'Territories', 'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'], 'coming' => true],
+        'custom_branding' => ['label' => 'Own subdomain and colours', 'roles' => ['owner', 'admin'], 'coming' => true],
+        'erp_integration' => ['label' => 'ERP integration (quoted separately)', 'roles' => ['owner', 'admin'], 'coming' => true],
     ];
 
     public static function allows(Manufacturer $manufacturer, Membership $membership, string $feature): bool

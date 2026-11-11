@@ -51,7 +51,10 @@ Phase 2 (billing and launch) has started:
 
 - **Billing:** Cashier with `Manufacturer` as the Billable model (not `User`); the subscription tables use `manufacturer_id`. Stripe calls go through `App\Billing\BillingGateway` (`StripeGateway`; tests bind `Tests\Support\FakeBillingGateway`). `App\Billing\SyncPlan` keeps `manufacturers.plan` in step with Stripe from webhooks. `Plan::standing()` is trialing, active, past_due or lapsed; the `standing` middleware pauses a lapsed account (402) everywhere except Billing and the logo. Past-due accounts stay open (`Cashier::keepPastDueSubscriptionsActive`). Stripe price ids are in `config/services.php`; amounts stay in `Plan`.
 - **Plan limits count active dealers**; dealers can be suspended and reactivated (`POST dealers/{link}/status`).
-- **Next in Phase 2:** landing and pricing pages, privacy and terms accepted at sign-up, Turnstile.
+- **Public site:** landing, pricing, privacy and terms (`frontend/src/pages/PublicPages.tsx`, `LegalPages.tsx`), with facts from `GET /api/site`. A Pro feature not built yet has `'coming' => true` in `Features::LIST` and shows "coming soon"; remove it when the feature ships.
+- **Terms:** `users.terms_version` must equal `config('dealerdock.legal.version')`, enforced by the `terms` middleware on tenant routes. The legal texts are **unreviewed drafts**. Any new cookie or tracking goes into the privacy policy's table before it ships.
+- **Turnstile:** `App\Support\Turnstile::check()` in register, login and forgot-password. A bad token is refused; if Cloudflare is unreachable the request goes through.
+- **Phase 2 is done in code.** Before launch: company details, retention, refunds and liability in the legal texts, plus a lawyer's review.
 
 The other option is the Phase 0 leftovers above. The Azure Blob driver for documents and a ClamAV server belong with the Azure deploy.
 

@@ -7,6 +7,7 @@ use App\Models\Manufacturer;
 use App\Models\Membership;
 use App\Models\User;
 use App\Support\Plan;
+use App\Support\Turnstile;
 use App\Support\TwoFactor;
 use App\Tenancy\Access;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +34,12 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:191', 'unique:users,email'],
             'password' => ['required', PasswordRule::defaults()],
+            // Agreeing to the terms and privacy policy, for the company and for themselves.
+            'accept_terms' => ['accepted'],
+        ], [
+            'accept_terms.accepted' => 'Please read and agree to the terms and privacy policy.',
         ]);
+        Turnstile::check($request);
 
         $user = DB::transaction(function () use ($data) {
             $manufacturer = Manufacturer::create([
@@ -44,6 +50,7 @@ class AuthController extends Controller
             ]);
 
             $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password']]);
+            $user->forceFill(['terms_version' => config('dealerdock.legal.version'), 'terms_accepted_at' => now()])->save();
             Membership::create([
                 'user_id' => $user->id,
                 'org_type' => Membership::MANUFACTURER,
@@ -67,6 +74,7 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
             'remember' => ['boolean'],
         ]);
+        Turnstile::check($request);
 
         $user = User::where('email', $data['email'])->first();
         if (! $user || ! Auth::guard('web')->getProvider()->validateCredentials($user, ['password' => $data['password']])) {
@@ -135,7 +143,10 @@ class AuthController extends Controller
                 'two_factor_required' => (bool) config('dealerdock.require_two_factor'),
                 // Tour keys this person has finished or skipped (Tours).
                 'tours_seen' => array_keys($user->tours_seen ?? []),
+                // The version of the terms they agreed to; the app asks again when it isn't the current one.
+                'terms_version' => $user->terms_version,
             ],
+            'terms_version' => config('dealerdock.legal.version'),
             'manufacturers' => Access::for($user)->map(fn ($c) => Access::describe($c))->values(),
         ]);
     }
@@ -143,6 +154,8 @@ class AuthController extends Controller
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate(['email' => ['required', 'email']]);
+        // Otherwise a bot could flood anyone's inbox with reset emails.
+        Turnstile::check($request);
         Password::sendResetLink($request->only('email'));
 
         // The same answer whether or not the address has an account.

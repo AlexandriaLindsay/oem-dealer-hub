@@ -58,7 +58,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const data = response.status === 204 ? null : await response.json().catch(() => ({}))
   if (!response.ok) {
     // The account was paused while the app was open: let the app catch up (AuthProvider refreshes /me).
-    if (response.status === 402) window.dispatchEvent(new Event('dealerdock:standing-changed'))
+    // Same for terms that changed while the app was open (403 terms_not_accepted).
+    if (response.status === 402 || data?.code === 'terms_not_accepted') window.dispatchEvent(new Event('dealerdock:standing-changed'))
     throw new ApiError(response.status, data ?? {})
   }
 
@@ -98,8 +99,12 @@ export interface Me {
     two_factor_required: boolean
     /** Guided tours this person has finished or skipped. */
     tours_seen: string[]
+    /** The version of the terms they agreed to (null: not yet). */
+    terms_version: string | null
   }
   manufacturers: ManufacturerAccess[]
+  /** The current version of the terms; the app asks again when it differs from the user's. */
+  terms_version: string
 }
 
 /** In order of a machine's usual life at a dealer (App\Models\Machine::STATUSES). */
@@ -291,6 +296,8 @@ export interface BillingPlan {
   annual_usd: number
   limits: { dealers: number | null; staff: number | null; storage_gb: number | null; price_lists: number | null }
   excludes: string[]
+  /** What the plan adds over Starter; coming = not built yet. */
+  extras: { label: string; coming: boolean }[]
   /** Why the account can't move to this plan right now; empty when it can. */
   blockers: string[]
 }

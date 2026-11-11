@@ -4,6 +4,8 @@ import QRCode from 'qrcode'
 import { api, ApiError, type Me } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Field, FormError, formValues } from '../components/Form'
+import { Turnstile } from '../components/Turnstile'
+import { useSite } from '../lib/site'
 
 function AuthCard({ title, children, footer }: { title: string; children: ReactNode; footer?: ReactNode }) {
   return (
@@ -22,7 +24,7 @@ function AuthCard({ title, children, footer }: { title: string; children: ReactN
 }
 
 /** Runs a form submit, keeping the busy flag and the API error. */
-function useSubmit() {
+function useSubmit(onError?: () => void) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<ApiError | null>(null)
 
@@ -33,6 +35,7 @@ function useSubmit() {
       await action()
     } catch (e) {
       setError(e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock. Check your connection.' }))
+      onError?.()
     } finally {
       setBusy(false)
     }
@@ -41,17 +44,36 @@ function useSubmit() {
   return { busy, error, run }
 }
 
+/** The bot check's token for a form, refreshed after each failed submit (a token works once). */
+function useBotCheck() {
+  const site = useSite()
+  const [token, setToken] = useState('')
+  const [resetKey, setResetKey] = useState(0)
+  const siteKey = site?.turnstile_site_key ?? null
+  return {
+    siteKey,
+    token,
+    setToken,
+    resetKey,
+    reset: () => setResetKey((k) => k + 1),
+    /** Waiting on the check: the submit button stays off until it's done. */
+    waiting: siteKey !== null && token === '',
+    field: siteKey ? { turnstile_token: token } : {},
+  }
+}
+
 export function LoginPage() {
   const { setMe } = useAuth()
   const navigate = useNavigate()
   const [step, setStep] = useState<'password' | 'code'>('password')
-  const { busy, error, run } = useSubmit()
+  const bot = useBotCheck()
+  const { busy, error, run } = useSubmit(bot.reset)
 
   function onPassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const v = formValues(e.currentTarget)
     run(async () => {
-      const result = await api.post<Me | { two_factor: true }>('/login', { email: v.email, password: v.password, remember: v.remember === 'on' })
+      const result = await api.post<Me | { two_factor: true }>('/login', { email: v.email, password: v.password, remember: v.remember === 'on', ...bot.field })
       if ('two_factor' in result) {
         setStep('code')
       } else {
@@ -103,8 +125,9 @@ export function LoginPage() {
         <label className="check">
           <input type="checkbox" name="remember" /> Keep me signed in
         </label>
+        <Turnstile siteKey={bot.siteKey} onToken={bot.setToken} resetKey={bot.resetKey} error={error?.field('turnstile_token')} />
         <FormError error={error} />
-        <button className="primary" disabled={busy}>
+        <button className="primary" disabled={busy || bot.waiting}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
         <Link to="/forgot-password" className="small-link">
@@ -118,13 +141,15 @@ export function LoginPage() {
 export function SignupPage() {
   const { setMe } = useAuth()
   const navigate = useNavigate()
-  const { busy, error, run } = useSubmit()
+  const site = useSite()
+  const bot = useBotCheck()
+  const { busy, error, run } = useSubmit(bot.reset)
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const v = formValues(e.currentTarget)
     run(async () => {
-      setMe(await api.post<Me>('/register', v))
+      setMe(await api.post<Me>('/register', { ...v, accept_terms: v.accept_terms === 'on', ...bot.field }))
       navigate('/')
     })
   }
@@ -138,14 +163,32 @@ export function SignupPage() {
         </>
       }
     >
-      <p className="lede">14 days of Pro, free. No card needed. Your dealers never pay.</p>
+      <p className="lede">{site?.trial_days ?? 14} days of Pro, free. No card needed. Your dealers never pay.</p>
       <form onSubmit={onSubmit} noValidate>
         <Field label="Company name" name="company" error={error} autoComplete="organization" autoFocus required />
         <Field label="Your name" name="name" error={error} autoComplete="name" required />
         <Field label="Work email" name="email" type="email" error={error} autoComplete="email" required />
         <Field label="Password" name="password" type="password" error={error} autoComplete="new-password" hint="At least 10 characters." required />
+        <div className="field">
+          <label className="check terms-check">
+            <input type="checkbox" name="accept_terms" aria-invalid={!!error?.field('accept_terms')} />
+            <span>
+              I agree to the{' '}
+              <Link to="/terms" target="_blank">
+                terms
+              </Link>{' '}
+              and{' '}
+              <Link to="/privacy" target="_blank">
+                privacy policy
+              </Link>
+              , for my company and myself.
+            </span>
+          </label>
+          {error?.field('accept_terms') && <p className="field-error">{error.field('accept_terms')}</p>}
+        </div>
+        <Turnstile siteKey={bot.siteKey} onToken={bot.setToken} resetKey={bot.resetKey} error={error?.field('turnstile_token')} />
         <FormError error={error} />
-        <button className="primary" disabled={busy}>
+        <button className="primary" disabled={busy || bot.waiting}>
           {busy ? 'Creating your account…' : 'Start free trial'}
         </button>
       </form>
@@ -155,13 +198,14 @@ export function SignupPage() {
 
 export function ForgotPasswordPage() {
   const [sent, setSent] = useState<string | null>(null)
-  const { busy, error, run } = useSubmit()
+  const bot = useBotCheck()
+  const { busy, error, run } = useSubmit(bot.reset)
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const v = formValues(e.currentTarget)
     run(async () => {
-      const r = await api.post<{ message: string }>('/forgot-password', { email: v.email })
+      const r = await api.post<{ message: string }>('/forgot-password', { email: v.email, ...bot.field })
       setSent(r.message)
     })
   }
@@ -174,8 +218,9 @@ export function ForgotPasswordPage() {
         <form onSubmit={onSubmit} noValidate>
           <p className="lede">We'll email you a link to set a new password.</p>
           <Field label="Email" name="email" type="email" error={error} autoComplete="email" autoFocus required />
+          <Turnstile siteKey={bot.siteKey} onToken={bot.setToken} resetKey={bot.resetKey} error={error?.field('turnstile_token')} />
           <FormError error={error} />
-          <button className="primary" disabled={busy}>
+          <button className="primary" disabled={busy || bot.waiting}>
             {busy ? 'Sending…' : 'Send reset link'}
           </button>
         </form>

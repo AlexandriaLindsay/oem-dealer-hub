@@ -52,6 +52,11 @@ class AppServiceProvider extends ServiceProvider
             throw new \RuntimeException('Production needs STRIPE_WEBHOOK_SECRET so Stripe webhooks are verified.');
         }
 
+        // The bot check guards sign-up, sign-in and password reset in production.
+        if (app()->isProduction() && ! config('services.turnstile.secret')) {
+            throw new \RuntimeException('Production needs TURNSTILE_SITE_KEY and TURNSTILE_SECRET (Cloudflare Turnstile).');
+        }
+
         // The manufacturer pays, not a person.
         Cashier::useCustomerModel(Manufacturer::class);
         // A failed payment doesn't cut anyone off while Stripe retries it; the

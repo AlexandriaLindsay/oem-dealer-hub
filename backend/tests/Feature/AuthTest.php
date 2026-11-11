@@ -29,9 +29,12 @@ class AuthTest extends TestCase
             'name' => 'Sam Owner',
             'email' => 'sam@acme.test',
             'password' => 'a-long-enough-pass-9',
+            'accept_terms' => true,
         ])->assertOk()
             ->assertJsonPath('user.email', 'sam@acme.test')
             ->assertJsonPath('user.two_factor', false)
+            // Agreeing at sign-up is recorded, with the version agreed to.
+            ->assertJsonPath('user.terms_version', config('dealerdock.legal.version'))
             ->assertJsonPath('manufacturers.0.slug', 'acme-scrapers')
             ->assertJsonPath('manufacturers.0.role', 'owner')
             ->assertJsonPath('manufacturers.0.plan', Plan::TRIAL);
@@ -46,7 +49,7 @@ class AuthTest extends TestCase
         $this->manufacturer('acme-scrapers');
 
         $this->postJson('/api/register', [
-            'company' => 'Acme Scrapers', 'name' => 'Sam', 'email' => 'sam@acme.test', 'password' => 'a-long-enough-pass-9',
+            'company' => 'Acme Scrapers', 'name' => 'Sam', 'email' => 'sam@acme.test', 'password' => 'a-long-enough-pass-9', 'accept_terms' => true,
         ])->assertOk()->assertJsonPath('manufacturers.0.slug', 'acme-scrapers-2');
     }
 

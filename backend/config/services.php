@@ -45,6 +45,14 @@ return [
         ],
     ],
 
+    // Cloudflare Turnstile - the bot check on sign-up, sign-in and password
+    // reset (docs/PLAN.md section 4). Without a secret it's skipped (local
+    // development); production refuses to start without one.
+    'turnstile' => [
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret' => env('TURNSTILE_SECRET'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

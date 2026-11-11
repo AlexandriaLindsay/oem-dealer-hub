@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Tenant;
 use App\Billing\BillingGateway;
 use App\Billing\SyncPlan;
 use App\Billing\Usage;
+use App\Http\Controllers\Api\LegalController;
 use App\Http\Controllers\Controller;
 use App\Support\Plan;
 use App\Tenancy\Tenant;
@@ -51,6 +52,8 @@ class BillingController extends Controller
                 'annual_usd' => $p['annual_usd'],
                 'limits' => $p['limits'],
                 'excludes' => $p['excludes'],
+                // The same words as the pricing page, with "coming soon" on what isn't built yet.
+                'extras' => LegalController::extras($p['excludes']),
                 'blockers' => Plan::blockers($key, $usage),
             ])->values(),
         ]);

@@ -29,6 +29,24 @@ return [
     ],
 
     /*
+     * The privacy policy and terms (frontend: src/pages/LegalPages.tsx).
+     *
+     * version: bump it whenever either text changes in a way people should
+     * agree to again - everyone is asked at their next sign-in.
+     * reviewed: false shows a "draft, not yet reviewed" notice on both pages.
+     * Set it to true only once a lawyer has reviewed them.
+     * The company details fill the placeholders in the text.
+     */
+    'legal' => [
+        'version' => env('DEALERDOCK_TERMS_VERSION', '2026-11-11'),
+        'reviewed' => (bool) env('DEALERDOCK_LEGAL_REVIEWED', false),
+        'company_name' => env('DEALERDOCK_COMPANY_NAME'),
+        'company_address' => env('DEALERDOCK_COMPANY_ADDRESS'),
+        'contact_email' => env('DEALERDOCK_CONTACT_EMAIL'),
+        'governing_law' => env('DEALERDOCK_GOVERNING_LAW'),
+    ],
+
+    /*
      * Malware scanning for every upload (docs/PLAN.md section 4).
      *
      * - clamav: send each file to a ClamAV daemon (clamd) before storing it.

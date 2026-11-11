@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\LegalController;
 use App\Http\Controllers\Api\Tenant\BillingController;
 use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
@@ -16,6 +17,9 @@ use App\Http\Controllers\Api\Tenant\StaffController;
 use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\TwoFactorController;
 use Illuminate\Support\Facades\Route;
+
+// Public: plans, prices and legal details for the landing, pricing and legal pages.
+Route::get('/site', [LegalController::class, 'site']);
 
 // Signing in and up - rate limited per IP (AppServiceProvider).
 Route::middleware('throttle:auth')->group(function () {
@@ -35,10 +39,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/two-factor', [TwoFactorController::class, 'disable'])->middleware('throttle:auth');
 
     Route::post('/tours/{key}/seen', [TourController::class, 'seen']);
+    Route::post('/terms/accept', [LegalController::class, 'accept']);
 
     // Everything inside one manufacturer. ResolveTenant checks the user works
     // there and scopes every tenant-owned query to it.
-    Route::prefix('m/{tenant}')->middleware(['two-factor', 'tenant'])->group(function () {
+    // 'terms': agreed to the current terms first (RequireCurrentTerms).
+    Route::prefix('m/{tenant}')->middleware(['two-factor', 'terms', 'tenant'])->group(function () {
         // Open even while the account is paused, so the owner can pick a plan.
         Route::get('/billing', [BillingController::class, 'show'])->middleware('feature:billing');
         Route::post('/billing/checkout', [BillingController::class, 'checkout'])->middleware('feature:billing');

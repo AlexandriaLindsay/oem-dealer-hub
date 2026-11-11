@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RequireCurrentTerms;
 use App\Http\Middleware\RequireFeature;
 use App\Http\Middleware\RequireGoodStanding;
 use App\Http\Middleware\RequireTwoFactor;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'two-factor' => RequireTwoFactor::class,
             'feature' => RequireFeature::class,
             'standing' => RequireGoodStanding::class,
+            'terms' => RequireCurrentTerms::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

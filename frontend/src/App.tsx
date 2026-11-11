@@ -11,16 +11,35 @@ import { LibraryPage } from './pages/LibraryPages'
 import { ImportPage } from './pages/ImportPage'
 import { SettingsPage } from './pages/SetupPages'
 import { BillingPage } from './pages/BillingPage'
+import { LandingPage, PricingPage } from './pages/PublicPages'
+import { AcceptTermsPage, PrivacyPage, TermsPage } from './pages/LegalPages'
 
-/** Signed out -> sign in; no two-factor yet -> set it up; otherwise the page. */
-function RequireAuth({ children, allowWithoutTwoFactor = false }: { children: ReactNode; allowWithoutTwoFactor?: boolean }) {
+/**
+ * Signed out -> sign in; no two-factor yet -> set it up; the current terms
+ * not agreed yet -> agree; otherwise the page. The API enforces the same
+ * steps; this just goes straight to the right page.
+ */
+function RequireAuth({ children, allowWithoutTwoFactor = false, allowWithoutTerms = false }: { children: ReactNode; allowWithoutTwoFactor?: boolean; allowWithoutTerms?: boolean }) {
   const { me } = useAuth()
 
   if (me === undefined) return <p className="muted center">Loading…</p>
   if (me === null) return <Navigate to="/login" replace />
   if (!allowWithoutTwoFactor && needsTwoFactorSetup(me)) return <Navigate to="/setup-2fa" replace />
+  if (!allowWithoutTerms && me.user.terms_version !== me.terms_version) return <Navigate to="/accept-terms" replace />
 
   return <>{children}</>
+}
+
+/** "/": the landing page for visitors; straight into the app for people signed in. */
+function Root() {
+  const { me } = useAuth()
+  if (me === undefined) return <p className="muted center">Loading…</p>
+  if (me === null) return <LandingPage />
+  return (
+    <RequireAuth>
+      <Home />
+    </RequireAuth>
+  )
 }
 
 /** Signed-in pages for signed-out people only (sign in, sign up). */
@@ -65,8 +84,13 @@ export default function App() {
           <Route path="/signup" element={<GuestOnly><SignupPage /></GuestOnly>} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/setup-2fa" element={<RequireAuth allowWithoutTwoFactor><TwoFactorSetupPage /></RequireAuth>} />
-          <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
+          <Route path="/setup-2fa" element={<RequireAuth allowWithoutTwoFactor allowWithoutTerms><TwoFactorSetupPage /></RequireAuth>} />
+          <Route path="/accept-terms" element={<RequireAuth allowWithoutTerms><AcceptTermsPage /></RequireAuth>} />
+          <Route path="/" element={<Root />} />
+          {/* Public: anyone can read these, signed in or not. */}
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route
             path="/m/:slug"
             element={
