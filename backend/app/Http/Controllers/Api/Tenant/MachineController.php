@@ -63,6 +63,7 @@ class MachineController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
         ], [
             'serial_no.unique' => 'There\'s already a machine with that serial number.',
+            'dealer_link_id.exists' => self::LINK_MESSAGE,
         ]);
 
         $link = isset($data['dealer_link_id']) ? DealerLink::findOrFail($data['dealer_link_id']) : null;
@@ -93,6 +94,8 @@ class MachineController extends Controller
         $data = $request->validate([
             'dealer_link_id' => ['present', 'nullable', 'integer', self::activeLinkRule()],
             'note' => ['nullable', 'string', 'max:500'],
+        ], [
+            'dealer_link_id.exists' => self::LINK_MESSAGE,
         ]);
 
         $link = $data['dealer_link_id'] ? DealerLink::findOrFail($data['dealer_link_id']) : null;
@@ -101,12 +104,20 @@ class MachineController extends Controller
         return $this->show($m->id);
     }
 
-    /** A dealer at this manufacturer that's active - a suspended dealer can't be sent stock. */
+    private const LINK_MESSAGE = 'Choose one of your active dealers.';
+
+    /**
+     * A dealer at this manufacturer that's active - a suspended dealer can't
+     * be sent stock - and, for staff limited by territories, in one of theirs.
+     */
     private static function activeLinkRule(): Exists
     {
-        return Rule::exists('dealer_links', 'id')
+        $rule = Rule::exists('dealer_links', 'id')
             ->where('manufacturer_id', Tenant::current()->id())
             ->where('status', DealerLink::ACTIVE);
+        $territoryLinks = Tenant::current()->territoryLinkIds();
+
+        return $territoryLinks === null ? $rule : $rule->whereIn('id', $territoryLinks);
     }
 
     private static function row(Machine $m): array
@@ -147,7 +158,8 @@ class MachineController extends Controller
                 return 'another dealer';
             }
 
-            return $names[(int) $linkId] ?? 'a former dealer';
+            // Not found: deleted, or outside the territories this person is limited to.
+            return $names[(int) $linkId] ?? ($tenant->territoryLinkIds() !== null ? 'a dealer outside your territories' : 'a former dealer');
         };
 
         return $events->map(fn (MachineEvent $e) => [

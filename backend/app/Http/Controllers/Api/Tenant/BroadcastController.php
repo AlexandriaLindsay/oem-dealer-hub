@@ -42,12 +42,17 @@ class BroadcastController extends Controller
     public function store(Request $request): JsonResponse
     {
         $tenantId = Tenant::current()->id();
+        $activeLink = Rule::exists('dealer_links', 'id')->where('manufacturer_id', $tenantId)->where('status', DealerLink::ACTIVE);
+        // Someone limited by territories sends only to their own dealers ("all" means all of theirs - the query below is scoped).
+        if (($territoryLinks = Tenant::current()->territoryLinkIds()) !== null) {
+            $activeLink->whereIn('id', $territoryLinks);
+        }
         $data = $request->validate([
             'title' => ['required', 'string', 'max:191'],
             'body' => ['required', 'string', 'max:10000'],
             'audience' => ['required', Rule::in([Broadcast::ALL, Broadcast::SELECTED])],
             'dealer_link_ids' => ['required_if:audience,'.Broadcast::SELECTED, 'array', 'max:5000'],
-            'dealer_link_ids.*' => ['integer', 'distinct', Rule::exists('dealer_links', 'id')->where('manufacturer_id', $tenantId)->where('status', DealerLink::ACTIVE)],
+            'dealer_link_ids.*' => ['integer', 'distinct', $activeLink],
             'email' => ['boolean'],
         ], [
             'dealer_link_ids.required_if' => 'Choose at least one dealer.',
@@ -153,9 +158,12 @@ class BroadcastController extends Controller
             'audience' => $b->audience,
             'emailed' => $b->emailed,
             'withdrawn_at' => $b->withdrawn_at?->toIso8601String(),
-            'recipients' => $b->recipients->map(fn ($r) => [
+            // Recipients cascade away with their dealer, so a missing link here
+            // is one outside the territories this person is limited to: counted, not named.
+            'other_recipients' => $b->recipients->whereNull('dealerLink')->count(),
+            'recipients' => $b->recipients->filter(fn ($r) => $r->dealerLink)->map(fn ($r) => [
                 'dealer_link_id' => $r->dealer_link_id,
-                'dealer' => $r->dealerLink?->dealer->name ?? 'A former dealer',
+                'dealer' => $r->dealerLink->dealer->name,
                 'read_by' => ($reads[$r->dealer_link_id] ?? collect())->map(fn ($read) => ['name' => $read->user?->name, 'at' => $read->read_at->toIso8601String()])->values(),
             ])->sortBy('dealer')->values(),
         ];

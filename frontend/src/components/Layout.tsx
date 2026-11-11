@@ -22,6 +22,7 @@ const NAV: { to: string; label: string; feature: string }[] = [
   { to: 'broadcasts', label: 'Broadcasts', feature: 'broadcasts' },
   { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },
+  { to: 'territories', label: 'Territories', feature: 'territories' },
   { to: 'usage', label: 'Usage', feature: 'usage_analytics' },
   { to: 'staff', label: 'Staff', feature: 'manage_staff' },
   { to: 'settings', label: 'Settings', feature: 'setup' },
@@ -121,6 +122,12 @@ export function Layout() {
       <main className="content">
         {/* Not on Billing itself, which says the same thing in full. */}
         {!onBilling && <StandingBanner current={current} canBill={canBill} />}
+        {/* A rep limited to territories should never wonder where the other dealers went. */}
+        {current.territories && (
+          <p className="muted territory-note">
+            You see the dealers in {current.territories.length === 1 ? 'your territory' : 'your territories'}: {current.territories.join(', ')}.
+          </p>
+        )}
         {paused && !(canBill && onBilling) ? <Paused current={current} canBill={canBill} /> : <Outlet />}
       </main>
 

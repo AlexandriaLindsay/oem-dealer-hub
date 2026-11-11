@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\Tenant\QuoteController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
 use App\Http\Controllers\Api\Tenant\SetupController;
 use App\Http\Controllers\Api\Tenant\StaffController;
+use App\Http\Controllers\Api\Tenant\TerritoryController;
 use App\Http\Controllers\Api\Tenant\UsageController;
 use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\TwoFactorController;
@@ -142,6 +143,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
             Route::get('/fleet', [FleetController::class, 'summary'])->middleware('feature:fleet_report');
             Route::get('/fleet/export', [FleetController::class, 'export'])->middleware('feature:fleet_report');
+
+            Route::get('/territories', [TerritoryController::class, 'index'])->middleware('feature:territories');
+            Route::post('/territories', [TerritoryController::class, 'store'])->middleware('feature:territories');
+            Route::patch('/territories/{territory}', [TerritoryController::class, 'update'])->whereNumber('territory')->middleware('feature:territories');
+            Route::delete('/territories/{territory}', [TerritoryController::class, 'destroy'])->whereNumber('territory')->middleware('feature:territories');
+            Route::put('/territories/{territory}/reps', [TerritoryController::class, 'reps'])->whereNumber('territory')->middleware('feature:territories');
+            Route::post('/dealers/{link}/territory', [TerritoryController::class, 'assignDealer'])->middleware('feature:territories');
 
             Route::get('/dealers', [DealerController::class, 'index'])->middleware('feature:dealers');
             Route::post('/dealers', [DealerController::class, 'store'])->middleware('feature:manage_dealers');

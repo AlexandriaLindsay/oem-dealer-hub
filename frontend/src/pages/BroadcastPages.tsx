@@ -71,6 +71,8 @@ export function BroadcastsPage() {
 
 function Compose({ slug, onCancel, onSent }: { slug: string; onCancel: () => void; onSent: (id: number) => void }) {
   const dealers = (useApi<DealerRow[]>(`/m/${slug}/dealers`).data ?? []).filter((d) => d.status === 'active')
+  // Someone limited by territories sends to their own dealers only - say so.
+  const limited = !!useCurrentManufacturer()?.territories
   const [audience, setAudience] = useState<'all' | 'selected'>('all')
   const [chosen, setChosen] = useState<number[]>([])
   const [busy, setBusy] = useState(false)
@@ -111,7 +113,7 @@ function Compose({ slug, onCancel, onSent }: { slug: string; onCancel: () => voi
         <fieldset className="choice">
           <legend>Send to</legend>
           <label className="check">
-            <input type="radio" name="audience" checked={audience === 'all'} onChange={() => setAudience('all')} /> All {dealers.length} active dealers
+            <input type="radio" name="audience" checked={audience === 'all'} onChange={() => setAudience('all')} /> All {dealers.length} active dealers{limited ? ' in your territories' : ''}
           </label>
           <label className="check">
             <input type="radio" name="audience" checked={audience === 'selected'} onChange={() => setAudience('selected')} /> Dealers I choose
@@ -186,6 +188,11 @@ export function BroadcastPage() {
       <h2 className="section-title">
         Read by {read} of {data.recipients.length} dealers
       </h2>
+      {data.other_recipients > 0 && (
+        <p className="muted">
+          Also sent to {data.other_recipients} {data.other_recipients === 1 ? 'dealer' : 'dealers'} outside your territories.
+        </p>
+      )}
       <div className="table-wrap">
         <table>
           <thead>

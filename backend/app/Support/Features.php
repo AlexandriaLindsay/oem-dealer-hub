@@ -146,7 +146,8 @@ final class Features
         // feature ships.
         'broadcasts' => ['label' => 'Broadcasts to your dealers', 'roles' => ['owner', 'admin', 'inside_sales']],
         'usage_analytics' => ['label' => 'Usage analytics', 'roles' => ['owner', 'admin']],
-        'territories' => ['label' => 'Territories', 'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'], 'coming' => true],
+        // Managing territories. Being limited by one needs no feature - see App\Support\Territories.
+        'territories' => ['label' => 'Territories', 'roles' => ['owner', 'admin']],
         'custom_branding' => ['label' => 'Own subdomain and colours', 'roles' => ['owner', 'admin'], 'coming' => true],
         'erp_integration' => ['label' => 'ERP integration (quoted separately)', 'roles' => ['owner', 'admin'], 'coming' => true],
     ];

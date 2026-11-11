@@ -255,6 +255,8 @@ export function DealersPage() {
   const [statusError, setStatusError] = useState<string | null>(null)
   const canPrice = !!current?.features.includes('manage_pricing')
   const priceLists = useApi<PriceListSummary[]>(canPrice ? `/m/${slug}/price-lists` : null)
+  // Only once some dealer is in a territory - otherwise it's an empty column.
+  const hasTerritories = !!data?.some((d) => d.territory)
 
   /** Which price list a dealer buys from ('' = the default). */
   async function setPriceList(d: DealerRow, value: string) {
@@ -332,6 +334,7 @@ export function DealersPage() {
                 <th>Code</th>
                 <th>Location</th>
                 <th>Status</th>
+                {hasTerritories && <th>Territory</th>}
                 {canPrice && priceLists.data && priceLists.data.length > 0 && <th>Price list</th>}
                 {current?.features.includes('machines') && <th>Machines</th>}
                 {canManage && (
@@ -350,6 +353,7 @@ export function DealersPage() {
                   <td>
                     <span className={`badge badge-${d.status}`}>{d.status}</span>
                   </td>
+                  {hasTerritories && <td>{d.territory?.name ?? '—'}</td>}
                   {canPrice && priceLists.data && priceLists.data.length > 0 && (
                     <td>
                       <label className="sr-only" htmlFor={`pl-${d.id}`}>

@@ -41,6 +41,12 @@ class Machine extends Model
         return $this->belongsTo(ProductModel::class);
     }
 
+    /** A rep limited to territories still sees the factory's own stock - it's what they sell to their dealers. */
+    protected static function territoryRepsSeeRowsWithoutDealer(): bool
+    {
+        return true;
+    }
+
     public function dealerLink(): BelongsTo
     {
         return $this->belongsTo(DealerLink::class);

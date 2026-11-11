@@ -9,6 +9,7 @@ use App\Models\EndUser;
 use App\Models\Machine;
 use App\Models\MachineImport;
 use App\Models\Manufacturer;
+use App\Models\Membership;
 use App\Models\PartsOrder;
 use App\Models\PriceList;
 use App\Models\PriceListItem;
@@ -17,11 +18,13 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\Registration;
+use App\Models\Territory;
 use App\Models\UsageDay;
 use App\Tenancy\MissingTenantException;
 use App\Tenancy\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -511,6 +514,55 @@ class TenantIsolationTest extends TestCase
         $this->actingAs($dealerUser)->getJson('/api/m/acme/announcements')->assertJsonCount(0);
         $this->actingAs($dealerUser)->getJson("/api/m/acme/announcements/{$boltBroadcast}")->assertNotFound();
         $this->assertNull(Broadcast::withoutTenant()->find($boltBroadcast)->withdrawn_at);
+    }
+
+    // ---- Territories ----
+
+    public function test_territories_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $acmeOwner = $this->staff($acme);
+        $boltOwner = $this->staff($bolt);
+        $boltDealer = $this->dealer('Bolt Dealer', $bolt);
+        $boltLink = $this->link($boltDealer, $bolt);
+        $boltRep = $this->staff($bolt, 'sales_rep');
+        $boltRepMembership = Membership::where('user_id', $boltRep->id)->value('id');
+        $boltTerritory = $this->actingAs($boltOwner)->postJson('/api/m/bolt/territories', ['name' => 'Secret West'])->assertCreated()->json('id');
+        $acmeTerritory = $this->actingAs($acmeOwner)->postJson('/api/m/acme/territories', ['name' => 'Canada'])->assertCreated()->json('id');
+
+        // Bolt's territories: not listed, not renamed, deleted or staffed from Acme.
+        $this->actingAs($acmeOwner)->getJson('/api/m/acme/territories')->assertJsonCount(1, 'territories')->assertJsonMissing(['name' => 'Secret West']);
+        $this->actingAs($acmeOwner)->patchJson("/api/m/acme/territories/{$boltTerritory}", ['name' => 'Hijacked'])->assertNotFound();
+        $this->actingAs($acmeOwner)->deleteJson("/api/m/acme/territories/{$boltTerritory}")->assertNotFound();
+        $this->actingAs($acmeOwner)->putJson("/api/m/acme/territories/{$boltTerritory}/reps", ['membership_ids' => []])->assertNotFound();
+        // Bolt's people and dealers can't be put in Acme's territory, nor Acme's dealers in Bolt's.
+        $this->actingAs($acmeOwner)->putJson("/api/m/acme/territories/{$acmeTerritory}/reps", ['membership_ids' => [$boltRepMembership]])->assertUnprocessable();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/dealers/{$boltLink->id}/territory", ['territory_id' => $acmeTerritory])->assertNotFound();
+        $acmeLink = $this->link($this->dealer('Acme Dealer', $acme), $acme);
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/dealers/{$acmeLink->id}/territory", ['territory_id' => $boltTerritory])->assertUnprocessable();
+
+        $this->assertSame('Secret West', Territory::withoutTenant()->find($boltTerritory)->name);
+        $this->assertNull($boltLink->fresh()->territory_id);
+        $this->assertSame(0, DB::table('territory_reps')->count());
+    }
+
+    public function test_a_rep_limited_at_one_manufacturer_isnt_limited_at_another(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $this->dealer('Acme One', $acme);
+        $this->dealer('Acme Two', $acme);
+        $this->dealer('Bolt One', $bolt);
+        $this->dealer('Bolt Two', $bolt);
+        // The same person is a sales rep at both; only Acme puts them in a territory (with no dealers).
+        $rep = $this->staff($acme, 'sales_rep');
+        Membership::create(['user_id' => $rep->id, 'org_type' => Membership::MANUFACTURER, 'org_id' => $bolt->id, 'role' => 'sales_rep']);
+        $acmeTerritory = $this->actingAs($this->staff($acme))->postJson('/api/m/acme/territories', ['name' => 'Empty'])->json('id');
+        $this->putJson("/api/m/acme/territories/{$acmeTerritory}/reps", ['membership_ids' => [Membership::where('user_id', $rep->id)->where('org_id', $acme->id)->value('id')]])->assertOk();
+
+        $this->actingAs($rep)->getJson('/api/m/acme/dealers')->assertJsonCount(0);
+        $this->actingAs($rep)->getJson('/api/m/bolt/dealers')->assertJsonCount(2);
     }
 
     // ---- Usage analytics ----

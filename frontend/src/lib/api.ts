@@ -69,6 +69,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
+  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {}),
+  patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body ?? {}),
   delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),
 }
 
@@ -88,6 +90,8 @@ export interface ManufacturerAccess {
   dealer: { id: number; name: string } | null
   role: string
   features: string[]
+  /** The territories this person is limited to (they see only those dealers); null = every dealer. */
+  territories: string[] | null
 }
 
 export interface Me {
@@ -152,6 +156,8 @@ export interface DealerRow {
   dealer_code: string | null
   /** Their own price list; null = the default. */
   price_list_id: number | null
+  /** The territory it's in; null = none. */
+  territory: { id: number; name: string } | null
   status: string
   city: string | null
   region: string | null
@@ -455,6 +461,16 @@ export interface BroadcastDetail extends BroadcastRow {
   emailed: boolean
   withdrawn_at: string | null
   recipients: { dealer_link_id: number; dealer: string; read_by: { name: string | null; at: string }[] }[]
+  /** Recipients outside the territories the viewer is limited to - counted, not named. */
+  other_recipients: number
+}
+
+/** GET /m/{slug}/territories (owner and admins, Pro). */
+export interface TerritoriesData {
+  territories: { id: number; name: string; rep_ids: number[]; dealer_count: number }[]
+  /** Staff who can cover a territory (sales reps, inside sales), by membership id. */
+  reps: { id: number; name: string; role: string }[]
+  dealers: { id: number; name: string; place: string | null; status: string; territory_id: number | null }[]
 }
 
 export interface Announcement {

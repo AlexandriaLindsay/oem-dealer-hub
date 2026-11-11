@@ -7,6 +7,7 @@ import { DashboardPage, DealersPage, ProductsPage, StaffPage } from './pages/Ten
 import { MachinePage, MachinesPage } from './pages/MachinePages'
 import { FleetPage } from './pages/FleetPage'
 import { UsagePage } from './pages/UsagePage'
+import { TerritoriesPage } from './pages/TerritoriesPage'
 import { RegistrationPage, RegistrationsPage } from './pages/RegistrationPages'
 import { LibraryPage } from './pages/LibraryPages'
 import { ImportPage } from './pages/ImportPage'
@@ -127,6 +128,7 @@ export default function App() {
             <Route path="parts-orders/:id" element={<PartsOrderPage />} />
             <Route path="broadcasts" element={<BroadcastsPage />} />
             <Route path="usage" element={<UsagePage />} />
+            <Route path="territories" element={<TerritoriesPage />} />
             <Route path="broadcasts/:id" element={<BroadcastPage />} />
             <Route path="announcements" element={<AnnouncementsPage />} />
             <Route path="announcements/:id" element={<AnnouncementPage />} />

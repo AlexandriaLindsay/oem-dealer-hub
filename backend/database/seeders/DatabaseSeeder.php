@@ -17,6 +17,7 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\Registration;
+use App\Models\Territory;
 use App\Models\UsageDay;
 use App\Models\User;
 use App\Support\Plan;
@@ -71,6 +72,24 @@ class DatabaseSeeder extends Seeder
         Tenant::run($acme, fn () => $this->logo($acme));
 
         Tenant::run($acme, fn () => $this->usage($acmePrairie));
+        Tenant::run($acme, fn () => $this->territories($acme, $acmePrairie, $acmeNorthern));
+    }
+
+    /**
+     * Acme's territories: Canada (Prairie), covered by Riley the sales rep,
+     * and United States (Northern), not covered yet. So rep@acme.test sees
+     * only Prairie - territories at work. Runs inside Tenant::run(Acme).
+     */
+    private function territories(Manufacturer $acme, DealerLink $prairie, DealerLink $northern): void
+    {
+        $canada = Territory::create(['name' => 'Canada']);
+        $us = Territory::create(['name' => 'United States']);
+        $prairie->forceFill(['territory_id' => $canada->id])->save();
+        $northern->forceFill(['territory_id' => $us->id])->save();
+
+        $riley = Membership::where('org_type', Membership::MANUFACTURER)->where('org_id', $acme->id)
+            ->whereHas('user', fn ($q) => $q->where('email', 'rep@acme.test'))->value('id');
+        $canada->reps()->attach($riley, ['manufacturer_id' => $acme->id]);
     }
 
     /**

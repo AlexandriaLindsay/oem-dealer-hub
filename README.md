@@ -38,7 +38,7 @@ Local development uses SQLite (`backend/database/database.sqlite`); production u
 | Email | Who |
 |---|---|
 | `owner@acme.test` | Owner of Acme Scrapers (Pro) |
-| `rep@acme.test` | Sales rep at Acme - sees dealers but can't add them |
+| `rep@acme.test` | Sales rep at Acme covering the Canada territory - sees only Prairie Equipment, and can't add dealers |
 | `owner@bolt.test` | Owner of Bolt Attachments (Starter - 10 dealer limit) |
 | `dealer@prairie.test` | Prairie Equipment - a dealer for **both** Acme and Bolt, with a brand switcher |
 
@@ -116,7 +116,8 @@ Phase 3 (commercial), in progress:
 - [x] Parts orders: dealers order by part number (or paste lines from a spreadsheet), with PO, machine serial, shipping and ship-to; the parts desk works an oldest-first queue: start → shipped (carrier, tracking) or cancelled (with a reason), and everyone gets an email. No prices: there's no parts price list yet, so the parts desk invoices as it does today.
 - [x] Broadcasts (Pro): announcements to all or chosen dealers, optionally emailed (queued); recipients fixed when sent; read tracking per person; withdraw. Dealers read them under Announcements.
 - [x] Usage analytics (Pro): which dealers use DealerDock, how often and for what, including the ones who don't. Counts page visits per person, area and day (no addresses, no content), only on plans with the report, and keeps them 13 months (`usage:prune`). The privacy policy says so.
-- [ ] Territories, own subdomain and colours (Pro, marked "coming soon" until built)
+- [x] Territories (Pro): owners and admins group dealers into territories and choose which sales reps and inside sales staff cover each. A rep in a territory sees only its dealers (and their machines, registrations, quotes and parts orders), plus the factory's own stock; reps in no territory and all other staff see every dealer. On Starter nobody is limited, and assignments are kept for an upgrade.
+- [ ] Own subdomain and colours (Pro, marked "coming soon" until built)
 
 ## Billing
 

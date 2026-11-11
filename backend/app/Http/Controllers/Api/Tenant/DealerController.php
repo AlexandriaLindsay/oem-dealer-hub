@@ -19,7 +19,7 @@ class DealerController extends Controller
 {
     public function index(): JsonResponse
     {
-        $links = DealerLink::with('dealer')->get()->sortBy('dealer.name')->values();
+        $links = DealerLink::with(['dealer', 'territory:id,name'])->get()->sortBy('dealer.name')->values();
 
         return response()->json($links->map(fn (DealerLink $link) => self::row($link)));
     }
@@ -102,6 +102,8 @@ class DealerController extends Controller
             'dealer_code' => $link->dealer_code,
             // null: buys from the default list.
             'price_list_id' => $link->price_list_id,
+            // null: in no territory.
+            'territory' => $link->territory ? ['id' => $link->territory->id, 'name' => $link->territory->name] : null,
             'status' => $link->status,
             'city' => $link->dealer->city,
             'region' => $link->dealer->region,

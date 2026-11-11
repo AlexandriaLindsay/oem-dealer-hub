@@ -5,6 +5,7 @@ namespace App\Tenancy;
 use App\Models\DealerLink;
 use App\Models\Manufacturer;
 use App\Models\Membership;
+use App\Support\Territories;
 
 /**
  * The manufacturer the current request (or job, or command) is working in.
@@ -27,6 +28,9 @@ class Tenant
     /** When acting as a dealer: that dealer's link with this manufacturer. */
     private ?DealerLink $dealerLink = null;
 
+    /** Territories::linkIdsFor, worked out once per request (the scopes ask on every query). False: not yet. */
+    private array|null|false $territoryLinks = false;
+
     public static function current(): self
     {
         return app(self::class);
@@ -37,11 +41,13 @@ class Tenant
         $this->manufacturer = $manufacturer;
         $this->membership = $membership;
         $this->dealerLink = $dealerLink;
+        $this->territoryLinks = false;
     }
 
     public function forget(): void
     {
         $this->manufacturer = $this->membership = $this->dealerLink = null;
+        $this->territoryLinks = false;
     }
 
     public function check(): bool
@@ -76,6 +82,24 @@ class Tenant
     }
 
     /**
+     * The dealer links this request is limited to by territories, or null
+     * for every dealer (App\Support\Territories). Background work
+     * (Tenant::run sets no membership) always sees every dealer.
+     *
+     * @return list<int>|null
+     */
+    public function territoryLinkIds(): ?array
+    {
+        if ($this->territoryLinks === false) {
+            $this->territoryLinks = $this->manufacturer && ! $this->isDealer()
+                ? Territories::linkIdsFor($this->manufacturer, $this->membership)
+                : null;
+        }
+
+        return $this->territoryLinks;
+    }
+
+    /**
      * Run $callback as $manufacturer (jobs, commands, seeders), then put back
      * whatever was set before.
      *
@@ -87,13 +111,13 @@ class Tenant
     public static function run(Manufacturer $manufacturer, callable $callback): mixed
     {
         $tenant = self::current();
-        $previous = [$tenant->manufacturer, $tenant->membership, $tenant->dealerLink];
+        $previous = [$tenant->manufacturer, $tenant->membership, $tenant->dealerLink, $tenant->territoryLinks];
         $tenant->set($manufacturer);
 
         try {
             return $callback();
         } finally {
-            [$tenant->manufacturer, $tenant->membership, $tenant->dealerLink] = $previous;
+            [$tenant->manufacturer, $tenant->membership, $tenant->dealerLink, $tenant->territoryLinks] = $previous;
         }
     }
 }

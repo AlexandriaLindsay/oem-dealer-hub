@@ -529,3 +529,24 @@ table.numeric td:not(:first-child), table.numeric th:not(:first-child) { text-al
 .cols-dates span { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: visible; }
 .cols-dates span:last-child { text-align: right; direction: rtl; }
 .cols-note { font-size: 0.85rem; margin: 0.75rem 0 0; }
+
+/* ---- Territories ---- */
+.territory-intro { max-width: 70ch; margin: -0.25rem 0 1.25rem; }
+.territories { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.territories .panel { margin: 0; }
+.territory-head { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem; }
+/* A long name wraps; the actions stay on the heading row. */
+.territory-head h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.territory-head .muted { flex: none; }
+.territory-actions { margin-left: auto; display: flex; gap: 0.25rem; flex: none; }
+.territory-reps { border: 0; padding: 0; margin: 0; }
+.territory-reps legend { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; padding: 0; }
+.territory-reps .check { margin-bottom: 0.4rem; }
+.territory-status { margin-left: 0.5rem; }
+.link-danger { color: var(--danger); }
+/* "You're seeing dealers in: ..." for a rep limited to territories. */
+.territory-note { margin: 0 0 1rem; font-size: 0.9rem; }
+/* On a phone the territory picker matters more than the location. */
+@media (max-width: 600px) {
+  .territory-dealers th:nth-child(2), .territory-dealers td:nth-child(2) { display: none; }
+}

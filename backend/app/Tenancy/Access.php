@@ -8,6 +8,7 @@ use App\Models\Membership;
 use App\Models\User;
 use App\Support\Features;
 use App\Support\Plan;
+use App\Support\Territories;
 use Illuminate\Support\Collection;
 
 /**
@@ -84,6 +85,8 @@ final class Access
             'dealer' => $context['link'] ? ['id' => $context['link']->dealer_id, 'name' => $context['membership']->dealer?->name] : null,
             'role' => $context['membership']->role,
             'features' => Features::for($m, $context['membership']),
+            // The territories this person is limited to (Territories), or null: every dealer.
+            'territories' => $context['link'] ? null : Territories::namesFor($m, $context['membership']),
         ];
     }
 }
