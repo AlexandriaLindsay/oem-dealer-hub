@@ -7,6 +7,7 @@ import { DashboardPage, DealersPage, ProductsPage, StaffPage } from './pages/Ten
 import { MachinePage, MachinesPage } from './pages/MachinePages'
 import { FleetPage } from './pages/FleetPage'
 import { RegistrationPage, RegistrationsPage } from './pages/RegistrationPages'
+import { LibraryPage } from './pages/LibraryPages'
 
 /** Signed out -> sign in; no two-factor yet -> set it up; otherwise the page. */
 function RequireAuth({ children, allowWithoutTwoFactor = false }: { children: ReactNode; allowWithoutTwoFactor?: boolean }) {
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="fleet" element={<FleetPage />} />
             <Route path="registrations" element={<RegistrationsPage />} />
             <Route path="registrations/:id" element={<RegistrationPage />} />
+            <Route path="documents" element={<LibraryPage />} />
             <Route path="dealers" element={<DealersPage />} />
             <Route path="staff" element={<StaffPage />} />
           </Route>

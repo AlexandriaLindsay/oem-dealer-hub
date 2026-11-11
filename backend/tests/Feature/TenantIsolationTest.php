@@ -3,15 +3,18 @@
 namespace Tests\Feature;
 
 use App\Models\DealerLink;
+use App\Models\Document;
 use App\Models\EndUser;
 use App\Models\Machine;
 use App\Models\Manufacturer;
 use App\Models\ProductLine;
+use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Registration;
 use App\Tenancy\MissingTenantException;
 use App\Tenancy\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -342,6 +345,89 @@ class TenantIsolationTest extends TestCase
 
         $this->assertSame(2, EndUser::withoutTenant()->count());
         $this->assertSame(1, Tenant::run($acme, fn () => EndUser::count()));
+    }
+
+    // ---- Document library ----
+
+    public function test_the_library_stays_inside_its_manufacturer(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $boltDoc = $this->libraryDocument($bolt, 'Bolt secret manual');
+        $this->machine($bolt, 'BOLT-1');
+        $user = $this->staff($acme);
+
+        $this->actingAs($user)->getJson('/api/m/acme/documents')->assertOk()->assertJsonPath('total', 0);
+        $this->actingAs($user)->get("/api/m/acme/documents/{$boltDoc->id}/file")->assertNotFound();
+        $this->actingAs($user)->postJson("/api/m/acme/documents/{$boltDoc->id}", ['title' => 'x', 'kind' => 'manual', 'audience' => 'everyone'])->assertNotFound();
+        $this->actingAs($user)->deleteJson("/api/m/acme/documents/{$boltDoc->id}")->assertNotFound();
+        // Another manufacturer's serial isn't found either.
+        $this->actingAs($user)->getJson('/api/m/acme/documents/for-serial?serial=BOLT-1')->assertNotFound();
+        // Nor can a document be linked to another manufacturer's model.
+        $boltModel = Tenant::run($bolt, fn () => ProductModel::first());
+        $this->actingAs($user)->post('/api/m/acme/documents', [
+            'title' => 'x', 'kind' => 'manual', 'audience' => 'everyone',
+            'file' => UploadedFile::fake()->createWithContent('m.pdf', '%PDF-1.4'),
+            'models' => [['id' => $boltModel->id]],
+        ], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('models.0.id');
+
+        $this->assertSame('Bolt secret manual', Document::withoutTenant()->find($boltDoc->id)->title);
+    }
+
+    public function test_dealers_never_see_staff_only_documents(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $prairie = $this->dealer('Prairie Equipment', $acme);
+        $this->libraryDocument($acme, 'Operator manual');
+        $internal = $this->libraryDocument($acme, 'Internal warranty costs', Document::STAFF);
+        $machine = $this->machine($acme, 'SN-1', $this->link($prairie, $acme));
+        $user = $this->dealerUser($prairie);
+
+        $this->actingAs($user)->getJson('/api/m/acme/documents')->assertJsonPath('total', 1)->assertJsonPath('data.0.title', 'Operator manual');
+        $this->actingAs($user)->getJson('/api/m/acme/documents?q=warranty')->assertJsonPath('total', 0);
+        $this->actingAs($user)->get("/api/m/acme/documents/{$internal->id}/file")->assertNotFound();
+        $this->actingAs($user)->getJson('/api/m/acme/documents/for-serial?serial=SN-1')->assertJsonCount(1, 'documents');
+        $this->actingAs($user)->getJson("/api/m/acme/machines/{$machine->id}/documents")->assertJsonCount(1);
+
+        // Staff see both.
+        $this->actingAs($this->staff($acme))->getJson('/api/m/acme/documents')->assertJsonPath('total', 2);
+    }
+
+    public function test_serial_lookup_of_another_dealers_machine_shows_only_its_model_and_manuals(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $prairie = $this->dealer('Prairie Equipment', $acme);
+        $rival = $this->dealer('Rival Equipment', $acme);
+        $this->libraryDocument($acme, 'Operator manual');
+        $rivalMachine = $this->machine($acme, 'RIVAL-1', $this->link($rival, $acme), 'sold');
+        $user = $this->dealerUser($prairie);
+
+        $response = $this->actingAs($user)->getJson('/api/m/acme/documents/for-serial?serial=RIVAL-1')
+            ->assertOk()
+            ->assertJsonPath('machine.model', 'S-400')
+            ->assertJsonCount(1, 'documents');
+
+        $this->assertSame(['serial_no', 'model', 'product_line'], array_keys($response->json('machine')));
+        $this->assertStringNotContainsString('Rival', $response->getContent());
+        $this->assertStringNotContainsString('sold', $response->getContent());
+        // The machine itself stays out of reach.
+        $this->actingAs($user)->getJson("/api/m/acme/machines/{$rivalMachine->id}/documents")->assertNotFound();
+    }
+
+    private function libraryDocument(Manufacturer $manufacturer, string $title, string $audience = Document::EVERYONE): Document
+    {
+        return Tenant::run($manufacturer, function () use ($title, $audience) {
+            $path = Tenant::current()->id().'/library/'.md5($title).'.pdf';
+            Storage::disk('documents')->put($path, '%PDF-1.4 '.$title);
+
+            return Document::create([
+                'title' => $title, 'kind' => 'manual', 'audience' => $audience, 'original_name' => 'm.pdf', 'path' => $path,
+                'mime' => 'application/pdf', 'size' => 20, 'sha256' => str_repeat('0', 64), 'scan_status' => 'clean',
+            ]);
+        });
     }
 
     /** A pending registration for $machine with one stored document. */

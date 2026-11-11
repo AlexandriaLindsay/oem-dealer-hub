@@ -67,6 +67,15 @@ final class Features
             'label' => 'Approve and reject registrations',
             'roles' => ['owner', 'admin', 'inside_sales', 'warranty'],
         ],
+        // Dealers see documents meant for everyone; staff also see staff-only ones (Document's audience scope).
+        'documents' => [
+            'label' => 'Manuals and documents',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'warranty', 'finance', 'parts', 'dealer_admin', 'dealer_user'],
+        ],
+        'manage_documents' => [
+            'label' => 'Add and change manuals and documents',
+            'roles' => ['owner', 'admin', 'warranty', 'parts'],
+        ],
         'dealers' => [
             'label' => 'Dealer network',
             'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],

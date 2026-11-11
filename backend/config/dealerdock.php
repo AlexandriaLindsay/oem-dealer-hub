@@ -19,6 +19,10 @@ return [
     'documents' => [
         'disk' => env('DEALERDOCK_DOCUMENTS_DISK', 'documents'),
         'max_kb' => (int) env('DEALERDOCK_UPLOAD_MAX_KB', 20 * 1024),
+        // Manuals and parts books run bigger. Raising this also needs PHP's
+        // upload_max_filesize and post_max_size, and clamd's StreamMaxLength
+        // (25 MB by default - set it to match, or big files can't be scanned).
+        'library_max_kb' => (int) env('DEALERDOCK_LIBRARY_MAX_KB', 40 * 1024),
         // What a bill of sale or checklist realistically is. No Office files
         // (macros) and no HTML/SVG (scripts).
         'mimes' => ['pdf', 'jpg', 'jpeg', 'png'],

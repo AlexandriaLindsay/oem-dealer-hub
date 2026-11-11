@@ -73,9 +73,10 @@ abstract class TestCase extends BaseTestCase
     }
 
     /** A machine at $manufacturer, with $link's dealer (or still at the manufacturer). */
-    protected function machine(Manufacturer $manufacturer, string $serial, ?DealerLink $link = null, string $status = 'inventory'): Machine
+    protected function machine(Manufacturer $manufacturer, string $serial, ?DealerLink $link = null, string $status = 'inventory', ?ProductModel $model = null): Machine
     {
-        $model = Tenant::run($manufacturer, fn () => ProductModel::first()) ?? $this->productModel($manufacturer);
+        // The manufacturer's first model by id (not "whichever the database returns first").
+        $model ??= Tenant::run($manufacturer, fn () => ProductModel::orderBy('id')->first()) ?? $this->productModel($manufacturer);
 
         return Tenant::run($manufacturer, function () use ($model, $serial, $link, $status) {
             $machine = Machine::add(['product_model_id' => $model->id, 'serial_no' => $serial], $link, null);

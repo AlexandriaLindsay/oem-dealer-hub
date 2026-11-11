@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Document;
 use App\Models\RegistrationDocument;
 use App\Support\Scanning\Scanner;
 use App\Support\Scanning\ScannerUnavailable;
@@ -30,16 +31,25 @@ final class Uploads
         return Storage::disk(config('dealerdock.documents.disk'));
     }
 
-    /** The validation rule for one uploaded document. */
-    public static function rule(): array
+    /**
+     * The validation rule for one uploaded file.
+     *
+     * @param  string  $limit  a key under dealerdock.documents: max_kb (registration
+     *                         documents) or library_max_kb (manuals, parts books)
+     */
+    public static function rule(string $limit = 'max_kb'): array
     {
-        return ['file', 'mimes:'.implode(',', config('dealerdock.documents.mimes')), 'max:'.config('dealerdock.documents.max_kb')];
+        return ['file', 'mimes:'.implode(',', config('dealerdock.documents.mimes')), 'max:'.config('dealerdock.documents.'.$limit)];
     }
 
-    /** Bytes stored by the current manufacturer (all its documents). */
+    /**
+     * Bytes stored by the current manufacturer, across every kind of upload.
+     * Staff-only library documents count too, even when a dealer is asking.
+     */
     public static function usedBytes(): int
     {
-        return (int) RegistrationDocument::sum('size');
+        return (int) RegistrationDocument::sum('size')
+            + (int) Document::withoutGlobalScope('audience')->sum('size');
     }
 
     /**

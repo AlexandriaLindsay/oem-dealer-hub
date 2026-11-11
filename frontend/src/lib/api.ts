@@ -210,3 +210,32 @@ export interface RegistrationPage {
   page: number
   last_page: number
 }
+
+export type DocumentKind = 'manual' | 'parts_book' | 'bulletin' | 'brochure' | 'other'
+
+export interface LibraryDocument {
+  id: number
+  title: string
+  kind: DocumentKind
+  description: string | null
+  audience: 'everyone' | 'staff'
+  name: string
+  mime: string
+  size: number
+  scan_status: 'clean' | 'not_scanned'
+  updated_at: string | null
+  /** Empty: covers every machine. */
+  covers: { model_id: number; model: string; serial_from: string | null; serial_to: string | null; range: string | null }[]
+}
+
+export interface LibraryPage {
+  data: LibraryDocument[]
+  total: number
+  page: number
+  last_page: number
+}
+
+export interface SerialLookup {
+  machine: { serial_no: string; model: string; product_line: string }
+  documents: LibraryDocument[]
+}

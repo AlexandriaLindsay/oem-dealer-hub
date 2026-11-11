@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Dealer;
 use App\Models\DealerLink;
+use App\Models\Document;
 use App\Models\Machine;
 use App\Models\Manufacturer;
 use App\Models\Membership;
@@ -99,6 +100,7 @@ class DatabaseSeeder extends Seeder
             $moved->transferTo($acmePrairie, $owner, 'Prairie had a buyer lined up.');
 
             $this->registrations($owner, $moved);
+            $this->library($owner, ['S-400' => $s400, 'S-600' => $s600, 'R-200' => $r200]);
         });
 
         Tenant::run($bolt, function () use ($boltPrairie) {
@@ -140,6 +142,45 @@ class DatabaseSeeder extends Seeder
             'kind' => 'bill_of_sale', 'original_name' => 'Hill Farms bill of sale.pdf', 'path' => $path, 'mime' => 'application/pdf',
             'size' => strlen($pdf), 'sha256' => hash('sha256', $pdf), 'scan_status' => ScanResult::NOT_SCANNED, 'uploaded_by' => $dealer->id,
         ]);
+    }
+
+    /**
+     * Acme's library: manuals by model and serial range, a bulletin across two
+     * models, a policy that covers everything, and one staff-only document.
+     * Tiny real PDFs, so opening them works in the demo. Runs inside
+     * Tenant::run(Acme).
+     *
+     * @param  array<string, ProductModel>  $models
+     */
+    private function library(User $owner, array $models): void
+    {
+        $documents = [
+            // title, kind, audience, [model => [from, to]]
+            ['S-400 operator manual (2024 and earlier)', 'manual', Document::EVERYONE, ['S-400' => [null, 'AS4-24000']]],
+            ['S-400 operator manual', 'manual', Document::EVERYONE, ['S-400' => ['AS4-24001', null]]],
+            ['S-400 parts book', 'parts_book', Document::EVERYONE, ['S-400' => [null, null]]],
+            ['S-600 operator manual', 'manual', Document::EVERYONE, ['S-600' => [null, null]]],
+            ['R-200 operator manual', 'manual', Document::EVERYONE, ['R-200' => [null, null]]],
+            ['Bulletin SB-112: check hitch pin torque', 'bulletin', Document::EVERYONE, ['S-400' => ['AS4-24001', 'AS4-24050'], 'S-600' => [null, null]]],
+            ['Limited warranty policy', 'other', Document::EVERYONE, []],
+            ['Warranty labour rates (internal)', 'other', Document::STAFF, []],
+        ];
+
+        foreach ($documents as [$title, $kind, $audience, $covers]) {
+            $pdf = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 144]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF";
+            $path = Tenant::current()->id().'/library/'.Str::uuid().'.pdf';
+            Uploads::disk()->put($path, $pdf);
+
+            $document = Document::create([
+                'title' => $title, 'kind' => $kind, 'audience' => $audience,
+                'original_name' => Str::slug($title).'.pdf', 'path' => $path, 'mime' => 'application/pdf',
+                'size' => strlen($pdf), 'sha256' => hash('sha256', $pdf), 'scan_status' => ScanResult::NOT_SCANNED,
+                'uploaded_by' => $owner->id,
+            ]);
+            foreach ($covers as $model => [$from, $to]) {
+                $document->models()->create(['product_model_id' => $models[$model]->id, 'serial_from' => $from, 'serial_to' => $to]);
+            }
+        }
     }
 
     private function member(string $email, string $name, string $orgType, int $orgId, string $role): void

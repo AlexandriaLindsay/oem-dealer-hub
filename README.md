@@ -86,7 +86,7 @@ Phase 1 (MVP), in progress:
 - [x] Staff add machines and move them between dealers; dealers see only their own machines and keep their status current
 - [x] Fleet report: machines by status, dealer and model across all dealers, with the same filters as the machine list, and an Excel export (OpenSpout, streamed in chunks; text is always written as text, so nothing in a cell can run as a formula)
 - [x] Product registration: dealers register a sale or rental with the customer and documents; the manufacturer approves (machine becomes sold or rental, customer becomes an end user) or rejects with a reason; both sides get an email
-- [ ] Manuals library, searchable by serial number
+- [x] Manuals library: manuals, parts books and bulletins linked to models and serial ranges, found by serial number, staff-only documents hidden from dealers
 - [ ] Azure Blob storage driver for documents (see "Uploads" below)
 - [ ] CSV import of existing machines, with an audit report
 - [ ] Onboarding tour
@@ -95,7 +95,9 @@ Phase 1 (MVP), in progress:
 
 - **Files never live in the web root.** They go on the `documents` disk (`DEALERDOCK_DOCUMENTS_DISK`): a private folder locally (`storage/app/private/documents`, gitignored), object storage in production. They're only sent through the API after its access checks, always as a download, never shown inline in the browser.
 - **Every upload is scanned before it's stored** (`App\Support\Uploads`). `DEALERDOCK_SCANNER=clamav` sends each file to a ClamAV daemon (`CLAMAV_HOST`, `CLAMAV_PORT`). If ClamAV can't be reached, the upload is refused rather than stored unchecked. `none` is for local development only: files are marked "not scanned", and the app refuses to boot with it in production.
-- PDF, JPG and PNG only, up to 20 MB each. Stored under generated names. Uploads count toward the plan's file storage.
+- PDF, JPG and PNG only: up to 20 MB for registration documents, 40 MB for library documents (`DEALERDOCK_LIBRARY_MAX_KB`). Raising the library limit also means raising PHP's `upload_max_filesize` and `post_max_size`, and clamd's `StreamMaxLength` (25 MB by default), or big files can't be scanned and are refused. Files are stored under generated names, and uploads count toward the plan's file storage.
+- Library PDFs and images can open in the browser (`?inline=1`), sent with `Content-Security-Policy: sandbox` so a booby-trapped file can't run as the signed-in user.
+- **Serial lookup reaches past the dealer scope on purpose:** a dealer can look up any serial at the manufacturer, because service shops work on machines they didn't sell. The answer is only the model and its documents, never the dealer, status or customer, and it's rate-limited so it can't be used to walk the serial numbers.
 - `migrate:fresh` doesn't empty the documents folder. Delete `backend/storage/app/private/documents` if you want a clean start.
 
 **A dealer only ever sees their own machines.** `Machine` and `Registration` have a second global scope on top of the manufacturer one (`App\Tenancy\VisibleToOwnDealer`): when the request is acting as a dealer, they only return that dealer's rows. A controller that forgets a filter still can't show one dealer another dealer's stock. A dealer also sees other dealers in a machine's history only as "another dealer".

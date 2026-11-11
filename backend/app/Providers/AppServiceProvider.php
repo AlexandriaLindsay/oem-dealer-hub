@@ -46,6 +46,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
         // Uploads are scanned and stored - generous for real use, a ceiling for abuse.
         RateLimiter::for('uploads', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
+        // Serial lookup reaches past the dealer scope (to a model name), so it
+        // can't be used to walk every serial number at a manufacturer.
+        RateLimiter::for('serial-lookup', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
 
         // Reset and invite links go to the SPA's page, not a Laravel route.
         ResetPassword::createUrlUsing(fn ($user, string $token) => rtrim(config('app.frontend_url'), '/')

@@ -8,6 +8,7 @@ import { AddForm, Loading, type Option } from '../components/AddForm'
 import { Swatch } from '../components/charts'
 import { FormError } from '../components/Form'
 import { MachineRegistrations } from './RegistrationPages'
+import { MachineDocuments } from './LibraryPages'
 
 const STATUS_OPTIONS: Option[] = MACHINE_STATUSES.map((s) => ({ value: s, label: capitalize(s) }))
 
@@ -285,6 +286,8 @@ export function MachinePage() {
       </div>
 
       {current?.features.includes('registrations') && <MachineRegistrations machine={data} />}
+
+      {current?.features.includes('documents') && <MachineDocuments machineId={data.id} />}
 
       <h2 className="section-title">History</h2>
       <ol className="history">

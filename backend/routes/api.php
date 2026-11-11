@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
+use App\Http\Controllers\Api\Tenant\DocumentController;
 use App\Http\Controllers\Api\Tenant\FleetController;
 use App\Http\Controllers\Api\Tenant\MachineController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
@@ -53,6 +54,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/registrations/{registration}/approve', [RegistrationController::class, 'approve'])->middleware('feature:review_registrations');
         Route::post('/registrations/{registration}/reject', [RegistrationController::class, 'reject'])->middleware('feature:review_registrations');
         Route::get('/registrations/{registration}/documents/{document}', [RegistrationController::class, 'document'])->middleware('feature:registrations');
+
+        Route::get('/documents', [DocumentController::class, 'index'])->middleware('feature:documents');
+        // Before /documents/{document}, so "for-serial" isn't taken as an id.
+        Route::get('/documents/for-serial', [DocumentController::class, 'forSerial'])->middleware(['feature:documents', 'throttle:serial-lookup']);
+        Route::post('/documents', [DocumentController::class, 'store'])->middleware(['feature:manage_documents', 'throttle:uploads']);
+        Route::post('/documents/{document}', [DocumentController::class, 'update'])->whereNumber('document')->middleware(['feature:manage_documents', 'throttle:uploads']);
+        Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->whereNumber('document')->middleware('feature:manage_documents');
+        Route::get('/documents/{document}/file', [DocumentController::class, 'file'])->whereNumber('document')->middleware('feature:documents');
+        Route::get('/machines/{machine}/documents', [DocumentController::class, 'forMachine'])->middleware('feature:documents');
 
         Route::get('/fleet', [FleetController::class, 'summary'])->middleware('feature:fleet_report');
         Route::get('/fleet/export', [FleetController::class, 'export'])->middleware('feature:fleet_report');
