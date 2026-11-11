@@ -47,6 +47,12 @@ Phase 1 (MVP) is done. Where things live:
 - **Import:** `App\Imports\SpreadsheetFile` reads CSV (UTF-8 or Windows-1252; comma, semicolon or tab) or XLSX. `App\Imports\MachineImporter::analyse()` is the preview and writes nothing; `apply()` re-analyses and writes in one transaction. Each import is a `MachineImport`.
 - **Onboarding:** `App\Support\Onboarding` (checklist steps computed from data), the logo on `Manufacturer`, tours in `frontend/src/lib/tours.ts` with keys in `App\Support\Tours`. The tour works out its steps on every render, because targets like the dashboard checklist load late.
 
-Next options: Phase 2 (billing and launch: Stripe/Cashier, plans, sign-up, pricing page), or the Phase 0 leftovers above. The Azure Blob driver for documents and a ClamAV server belong with the Azure deploy.
+Phase 2 (billing and launch) has started:
+
+- **Billing:** Cashier with `Manufacturer` as the Billable model (not `User`); the subscription tables use `manufacturer_id`. Stripe calls go through `App\Billing\BillingGateway` (`StripeGateway`; tests bind `Tests\Support\FakeBillingGateway`). `App\Billing\SyncPlan` keeps `manufacturers.plan` in step with Stripe from webhooks. `Plan::standing()` is trialing, active, past_due or lapsed; the `standing` middleware pauses a lapsed account (402) everywhere except Billing and the logo. Past-due accounts stay open (`Cashier::keepPastDueSubscriptionsActive`). Stripe price ids are in `config/services.php`; amounts stay in `Plan`.
+- **Plan limits count active dealers**; dealers can be suspended and reactivated (`POST dealers/{link}/status`).
+- **Next in Phase 2:** landing and pricing pages, privacy and terms accepted at sign-up, Turnstile.
+
+The other option is the Phase 0 leftovers above. The Azure Blob driver for documents and a ClamAV server belong with the Azure deploy.
 
 UI changes get checked in a real browser: headless Edge with `puppeteer-core` against a throwaway API (port 8011) and Vite (5174) on a scratch SQLite database, never the owner's dev servers or data.

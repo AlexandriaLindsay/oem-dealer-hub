@@ -91,6 +91,35 @@ Phase 1 (MVP), done:
 - [x] Machine import from CSV or Excel: a preview that writes nothing, then the import (rows with problems are left out), recorded with every row's outcome and an Excel audit report. Re-importing is safe: blank cells never clear anything, and a machine's model is never changed.
 - [x] Onboarding: a "Getting started" checklist that ticks itself from real data, the manufacturer's logo (PNG/JPG, scanned, shown to staff and dealers), and a guided tour for manufacturers and for dealers. Tours are versioned (`App\Support\Tours`), so a big feature can get a "What's new" tour later.
 
+Phase 2 (billing and launch), in progress:
+
+- [x] Billing with Stripe (Laravel Cashier): the manufacturer is the Stripe customer; Checkout to start, plan changes in the app (limits enforced), Stripe's portal for card, invoices and cancelling
+- [x] Trial, past-due and paused accounts, and suspending/reactivating dealers (only active dealers count toward a plan)
+- [ ] Landing page and pricing page
+- [ ] Privacy policy and terms, accepted at sign-up
+- [ ] Cloudflare Turnstile on sign-in and sign-up
+
+## Billing
+
+**Where an account stands** (`App\Support\Plan::standing`):
+
+| Standing | When | What happens |
+|---|---|---|
+| Trialing | First 14 days, no card | Pro limits. The owner sees a banner in the last 3 days. |
+| Active | A live subscription, or a plan set without one (billed by invoice, or free) | Everything works. |
+| Past due | A payment failed and Stripe is retrying | **Everything still works**; the owner sees "update your card". |
+| Lapsed | Trial over with no plan, or the subscription ended | **Paused** for staff and dealers (402 `account_lapsed`, with a plain page). Billing stays open. Nothing is deleted. |
+
+`manufacturers.plan` follows the subscription through Stripe's webhooks (`App\Billing\SyncPlan`). Moving to Starter is refused while over its limits, and the owner is told exactly why (`Plan::blockers`).
+
+**Setting up Stripe (test mode first):**
+
+1. In the Stripe dashboard, create two products, Starter and Pro, each with a monthly and an annual price matching `App\Support\Plan` ($49 / $490, $99 / $990, USD).
+2. Paste the keys and the four price ids into `backend/.env` (see `backend/.env.example`). Never paste them into chat or commit them.
+3. **Billing portal settings:** turn on payment-method updates, invoice history and cancelling (at period end). Turn **off** switching plans there: plan changes go through the app, which enforces the limits.
+4. **Webhooks:** locally, `stripe listen --forward-to localhost:8010/stripe/webhook` and put the `whsec_...` it prints into `STRIPE_WEBHOOK_SECRET`. In production, add an endpoint for `https://<host>/stripe/webhook` with Cashier's events (`php artisan cashier:webhook` creates it), and set its signing secret. The app refuses to start in production without one.
+5. Try it with Stripe's test card `4242 4242 4242 4242`.
+
 ## Uploads
 
 - **Files never live in the web root.** They go on the `documents` disk (`DEALERDOCK_DOCUMENTS_DISK`): a private folder locally (`storage/app/private/documents`, gitignored), object storage in production. They're only sent through the API after its access checks, always as a download, never shown inline in the browser.

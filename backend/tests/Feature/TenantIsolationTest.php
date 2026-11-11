@@ -348,6 +348,24 @@ class TenantIsolationTest extends TestCase
         $this->assertSame(1, Tenant::run($acme, fn () => EndUser::count()));
     }
 
+    // ---- Billing ----
+
+    public function test_billing_and_dealer_status_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $boltLink = $this->link($this->dealer('Bolt Dealer', $bolt), $bolt);
+        $user = $this->staff($acme);
+
+        foreach (['get' => '/api/m/bolt/billing', 'post' => '/api/m/bolt/billing/portal'] as $method => $url) {
+            $this->actingAs($user)->{$method.'Json'}($url)->assertNotFound();
+        }
+        $this->actingAs($user)->postJson('/api/m/bolt/billing/checkout', ['plan' => 'pro', 'interval' => 'monthly'])->assertNotFound();
+        // Another manufacturer's dealer can't be suspended from here.
+        $this->actingAs($user)->postJson("/api/m/acme/dealers/{$boltLink->id}/status", ['status' => 'suspended'])->assertNotFound();
+        $this->assertSame(DealerLink::ACTIVE, DealerLink::withoutTenant()->find($boltLink->id)->status);
+    }
+
     // ---- Onboarding and logo ----
 
     public function test_onboarding_and_the_logo_stay_inside_their_manufacturer(): void

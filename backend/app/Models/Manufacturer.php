@@ -2,15 +2,19 @@
 
 namespace App\Models;
 
-use App\Support\Plan;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Cashier\Billable;
 
-/** A paying tenant. */
+/**
+ * A paying tenant. The manufacturer - not a person - is the Stripe customer
+ * (Cashier's Billable), so the bill stays with the company when people
+ * change. Where the account stands is App\Support\Plan::standing().
+ */
 class Manufacturer extends Model
 {
-    use HasFactory;
+    use Billable, HasFactory;
 
     protected $fillable = ['name', 'slug', 'plan', 'trial_ends_at', 'settings'];
 
@@ -40,8 +44,14 @@ class Manufacturer extends Model
         return $this->logo_path ? '/api/m/'.$this->slug.'/logo?v='.$this->logo_updated_at?->timestamp : null;
     }
 
-    public function onTrial(): bool
+    /** Stripe's receipts and invoices go to the account owner. */
+    public function stripeEmail(): ?string
     {
-        return $this->plan === Plan::TRIAL && $this->trial_ends_at?->isFuture();
+        return $this->staff()->where('role', 'owner')->with('user')->first()?->user?->email;
+    }
+
+    public function stripeName(): ?string
+    {
+        return $this->name;
     }
 }

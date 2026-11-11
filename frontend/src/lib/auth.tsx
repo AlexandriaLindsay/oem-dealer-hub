@@ -32,6 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh().catch(() => setMe(null))
   }, [refresh])
 
+  // An API call came back "account paused" (402): fetch /me again so the app shows it.
+  useEffect(() => {
+    const onChange = () => refresh().catch(() => {})
+    window.addEventListener('dealerdock:standing-changed', onChange)
+    return () => window.removeEventListener('dealerdock:standing-changed', onChange)
+  }, [refresh])
+
   return <AuthContext.Provider value={{ me, setMe, refresh, logout }}>{children}</AuthContext.Provider>
 }
 

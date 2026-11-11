@@ -29,7 +29,8 @@ class DealerController extends Controller
     {
         $manufacturer = Tenant::current()->manufacturer();
 
-        if (! Plan::allows($manufacturer, 'dealers', DealerLink::count())) {
+        // Active dealers count toward the plan; suspended ones don't.
+        if (! Plan::allows($manufacturer, 'dealers', DealerLink::where('status', DealerLink::ACTIVE)->count())) {
             throw ValidationException::withMessages([
                 'name' => 'Your plan includes up to '.Plan::limit($manufacturer, 'dealers').' dealers. Upgrade to Pro for unlimited dealers.',
             ]);
@@ -67,6 +68,29 @@ class DealerController extends Controller
         });
 
         return response()->json(self::row($link->load('dealer')), 201);
+    }
+
+    /**
+     * Suspends a dealer (they can't sign in to this brand, and stop counting
+     * toward the plan) or makes them active again (which has to fit the plan).
+     * Their machines and history stay as they are.
+     */
+    public function updateStatus(Request $request, int $link): JsonResponse
+    {
+        $dealerLink = DealerLink::with('dealer')->findOrFail($link);
+        $status = $request->validate(['status' => ['required', 'in:'.DealerLink::ACTIVE.','.DealerLink::SUSPENDED]])['status'];
+        $manufacturer = Tenant::current()->manufacturer();
+
+        if ($status === DealerLink::ACTIVE && $dealerLink->status !== DealerLink::ACTIVE
+            && ! Plan::allows($manufacturer, 'dealers', DealerLink::where('status', DealerLink::ACTIVE)->count())) {
+            throw ValidationException::withMessages([
+                'status' => 'Your plan includes up to '.Plan::limit($manufacturer, 'dealers').' active dealers. Suspend another first, or upgrade to Pro for unlimited dealers.',
+            ]);
+        }
+
+        $dealerLink->update(['status' => $status]);
+
+        return response()->json(self::row($dealerLink));
     }
 
     private static function row(DealerLink $link): array

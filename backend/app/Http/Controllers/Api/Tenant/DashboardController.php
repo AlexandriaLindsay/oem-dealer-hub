@@ -30,7 +30,8 @@ class DashboardController extends Controller
         }
 
         $usage = [
-            'dealers' => DealerLink::count(),
+            // Active dealers - the ones the plan counts.
+            'dealers' => DealerLink::where('status', DealerLink::ACTIVE)->count(),
             'staff' => $manufacturer->staff()->count(),
             // In GB to match the plan's limit; one decimal is plenty on a dashboard.
             'storage_gb' => round(Uploads::usedBytes() / 1024 ** 3, 1),

@@ -7,6 +7,7 @@ use App\Models\Manufacturer;
 use App\Models\Membership;
 use App\Models\User;
 use App\Support\Features;
+use App\Support\Plan;
 use Illuminate\Support\Collection;
 
 /**
@@ -77,6 +78,8 @@ final class Access
             'plan' => $m->plan,
             'trial_ends_at' => $m->trial_ends_at?->toIso8601String(),
             'logo_url' => $m->logoUrl(),
+            // trialing | active | past_due | lapsed (Plan::standing) - the app pauses a lapsed account.
+            'standing' => Plan::standing($m),
             'acting_as' => $context['link'] ? 'dealer' : 'manufacturer',
             'dealer' => $context['link'] ? ['id' => $context['link']->dealer_id, 'name' => $context['membership']->dealer?->name] : null,
             'role' => $context['membership']->role,

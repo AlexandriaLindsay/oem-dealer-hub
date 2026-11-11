@@ -265,6 +265,26 @@ input[type='file'] { padding: 0.4rem; }
   .tour { transition: top 0.15s ease, left 0.15s ease; }
 }
 
+/* ---- Billing ---- */
+.button-primary { display: inline-block; background: var(--accent); color: var(--accent-text); border-radius: var(--radius); padding: 0.6rem 1.1rem; font-weight: 600; text-decoration: none; }
+.interval-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 0.25rem 0 1rem; }
+.interval-toggle button { background: var(--surface); color: var(--muted); border: 0; padding: 0.45rem 0.9rem; }
+.interval-toggle button.is-on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.plan-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.plan-card { display: flex; flex-direction: column; margin-bottom: 0.5rem; }
+.plan-card.is-current { border-color: var(--accent); }
+.plan-card h2 { display: flex; align-items: center; gap: 0.5rem; }
+.plan-card h2 .badge { text-transform: none; }
+.plan-price { margin: 0 0 0.75rem; color: var(--muted); }
+.plan-price strong { font-size: 1.9rem; color: var(--text); }
+.plan-features { margin: 0 0 1rem; padding-left: 1.1rem; flex: 1; }
+.plan-features li { margin-bottom: 0.25rem; }
+.plan-blockers { background: var(--danger-soft); border-radius: var(--radius); padding: 0.6rem 0.8rem; margin-bottom: 0.9rem; font-size: 0.9rem; }
+.plan-blockers ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+.plan-card .primary { align-self: flex-start; }
+.plan-cards + .hint { margin: 0.25rem 0 1.5rem; }
+.paused { max-width: 640px; padding: 2rem 0; }
+
 /* ---- Machine import ---- */
 .head-actions { display: inline-flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; justify-content: flex-end; }
 .button-secondary { display: inline-block; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.9rem; font-weight: 600; text-decoration: none; }

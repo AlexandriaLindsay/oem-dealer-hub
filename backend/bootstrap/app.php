@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RequireFeature;
+use App\Http\Middleware\RequireGoodStanding;
 use App\Http\Middleware\RequireTwoFactor;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Foundation\Application;
@@ -18,10 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // The SPA signs in with Sanctum's session cookie.
         $middleware->statefulApi();
 
+        // Stripe's webhooks can't carry a CSRF token; Cashier checks their signature instead.
+        $middleware->validateCsrfTokens(except: ['stripe/*']);
+
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'two-factor' => RequireTwoFactor::class,
             'feature' => RequireFeature::class,
+            'standing' => RequireGoodStanding::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

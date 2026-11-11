@@ -57,6 +57,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   const data = response.status === 204 ? null : await response.json().catch(() => ({}))
   if (!response.ok) {
+    // The account was paused while the app was open: let the app catch up (AuthProvider refreshes /me).
+    if (response.status === 402) window.dispatchEvent(new Event('dealerdock:standing-changed'))
     throw new ApiError(response.status, data ?? {})
   }
 
@@ -79,6 +81,8 @@ export interface ManufacturerAccess {
   trial_ends_at: string | null
   /** The manufacturer's logo (an API path with a version), or null. */
   logo_url: string | null
+  /** Where the account stands (App\Support\Plan::standing): a lapsed account is paused. */
+  standing: 'trialing' | 'active' | 'past_due' | 'lapsed'
   acting_as: 'manufacturer' | 'dealer'
   dealer: { id: number; name: string } | null
   role: string
@@ -278,4 +282,28 @@ export interface ImportRecord {
   by: string | null
   at: string | null
   summary: ImportSummary
+}
+
+export interface BillingPlan {
+  key: 'starter' | 'pro'
+  label: string
+  monthly_usd: number
+  annual_usd: number
+  limits: { dealers: number | null; staff: number | null; storage_gb: number | null; price_lists: number | null }
+  excludes: string[]
+  /** Why the account can't move to this plan right now; empty when it can. */
+  blockers: string[]
+}
+
+export interface Billing {
+  standing: ManufacturerAccess['standing']
+  plan: 'starter' | 'pro' | null
+  interval: 'monthly' | 'annual' | null
+  trial_ends_at: string | null
+  subscription: { status: string; ends_at: string | null; trial_ends_at: string | null } | null
+  managed_outside: boolean
+  card: { brand: string | null; last_four: string } | null
+  usage: { dealers: number; staff: number; storage_gb: number }
+  configured: boolean
+  plans: BillingPlan[]
 }

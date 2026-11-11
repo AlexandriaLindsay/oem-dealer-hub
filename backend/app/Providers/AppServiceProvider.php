@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Billing\BillingGateway;
+use App\Billing\StripeGateway;
+use App\Billing\SyncPlanFromWebhook;
+use App\Models\Manufacturer;
 use App\Support\Scanning\ClamAvScanner;
 use App\Support\Scanning\NoScanner;
 use App\Support\Scanning\Scanner;
@@ -9,9 +13,12 @@ use App\Tenancy\Tenant;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Cashier\Cashier;
+use Laravel\Cashier\Events\WebhookHandled;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Scoped: a fresh, empty Tenant for every request and queued job.
         $this->app->scoped(Tenant::class);
+
+        $this->app->singleton(BillingGateway::class, StripeGateway::class);
 
         $this->app->singleton(Scanner::class, function () {
             $config = config('dealerdock.scanner');
@@ -38,6 +47,18 @@ class AppServiceProvider extends ServiceProvider
         if (app()->isProduction() && config('dealerdock.scanner.driver') !== 'clamav') {
             throw new \RuntimeException('Production needs DEALERDOCK_SCANNER=clamav: uploads must be scanned for malware.');
         }
+        // Without the secret, Cashier accepts unsigned webhooks - anyone could "pay" for an account.
+        if (app()->isProduction() && config('cashier.secret') && ! config('cashier.webhook.secret')) {
+            throw new \RuntimeException('Production needs STRIPE_WEBHOOK_SECRET so Stripe webhooks are verified.');
+        }
+
+        // The manufacturer pays, not a person.
+        Cashier::useCustomerModel(Manufacturer::class);
+        // A failed payment doesn't cut anyone off while Stripe retries it; the
+        // owner sees a banner. If Stripe gives up, the subscription ends and
+        // the account lapses (SyncPlan).
+        Cashier::keepPastDueSubscriptionsActive();
+        Event::listen(WebhookHandled::class, SyncPlanFromWebhook::class);
 
         // At least 10 characters; in production also not in a known breach
         // (Have I Been Pwned - an outside call, so not in tests).

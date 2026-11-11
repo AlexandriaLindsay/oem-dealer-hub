@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { MACHINE_STATUSES, type DealerRow, type ProductModelRow } from '../lib/api'
+import { api, ApiError, MACHINE_STATUSES, type DealerRow, type ProductModelRow } from '../lib/api'
 import { useApi } from '../lib/useApi'
 import { useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
@@ -243,6 +243,20 @@ export function DealersPage() {
   const current = useCurrentManufacturer()
   const { data, error, reload } = useApi<DealerRow[]>(`/m/${slug}/dealers`)
   const [adding, setAdding] = useState(false)
+  const canManage = !!current?.features.includes('manage_dealers')
+  const [statusError, setStatusError] = useState<string | null>(null)
+
+  /** Suspend: they can't sign in to this brand, and stop counting toward the plan. Reactivating must fit the plan. */
+  async function setStatus(d: DealerRow, status: 'active' | 'suspended') {
+    if (status === 'suspended' && !window.confirm(`Suspend ${d.name}? Their people can't sign in to ${current?.name} until you reactivate them. Their machines and history stay as they are.`)) return
+    setStatusError(null)
+    try {
+      await api.post(`/m/${slug}/dealers/${d.id}/status`, { status })
+      reload()
+    } catch (e) {
+      setStatusError(e instanceof ApiError ? (e.field('status') ?? e.message) : 'Could not reach DealerDock.')
+    }
+  }
 
   return (
     <>
@@ -278,6 +292,12 @@ export function DealersPage() {
         </section>
       )}
 
+      {statusError && (
+        <p className="form-error" role="alert">
+          {statusError}
+        </p>
+      )}
+
       {!data ? (
         <Loading error={error} />
       ) : data.length === 0 ? (
@@ -292,6 +312,11 @@ export function DealersPage() {
                 <th>Location</th>
                 <th>Status</th>
                 {current?.features.includes('machines') && <th>Machines</th>}
+                {canManage && (
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -308,6 +333,13 @@ export function DealersPage() {
                       <Link to={`../machines?dealer=${d.id}`} relative="path">
                         View
                       </Link>
+                    </td>
+                  )}
+                  {canManage && (
+                    <td>
+                      <button className="link" onClick={() => setStatus(d, d.status === 'active' ? 'suspended' : 'active')}>
+                        {d.status === 'active' ? 'Suspend' : 'Reactivate'}
+                      </button>
                     </td>
                   )}
                 </tr>
