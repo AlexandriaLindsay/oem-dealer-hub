@@ -1,0 +1,42 @@
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Tenant\DashboardController;
+use App\Http\Controllers\Api\Tenant\DealerController;
+use App\Http\Controllers\Api\Tenant\ProductLineController;
+use App\Http\Controllers\Api\Tenant\StaffController;
+use App\Http\Controllers\Api\TwoFactorController;
+use Illuminate\Support\Facades\Route;
+
+// Signing in and up - rate limited per IP (AppServiceProvider).
+Route::middleware('throttle:auth')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login/two-factor', [AuthController::class, 'twoFactorChallenge']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::post('/two-factor/setup', [TwoFactorController::class, 'setup']);
+    Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:auth');
+    Route::delete('/two-factor', [TwoFactorController::class, 'disable'])->middleware('throttle:auth');
+
+    // Everything inside one manufacturer. ResolveTenant checks the user works
+    // there and scopes every tenant-owned query to it.
+    Route::prefix('m/{tenant}')->middleware(['two-factor', 'tenant'])->group(function () {
+        Route::get('/dashboard', DashboardController::class)->middleware('feature:dashboard');
+
+        Route::get('/product-lines', [ProductLineController::class, 'index'])->middleware('feature:products');
+        Route::post('/product-lines', [ProductLineController::class, 'store'])->middleware('feature:manage_products');
+
+        Route::get('/dealers', [DealerController::class, 'index'])->middleware('feature:dealers');
+        Route::post('/dealers', [DealerController::class, 'store'])->middleware('feature:manage_dealers');
+
+        Route::get('/staff', [StaffController::class, 'index'])->middleware('feature:manage_staff');
+        Route::post('/staff', [StaffController::class, 'store'])->middleware('feature:manage_staff');
+    });
+});
