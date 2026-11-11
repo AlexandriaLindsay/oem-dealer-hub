@@ -90,6 +90,16 @@ final class Features
             'label' => 'Price lists',
             'roles' => ['owner', 'admin', 'finance'],
         ],
+        // Dealers see their own quotes (Quote's dealer scope); sales staff read every dealer's.
+        'quotes' => [
+            'label' => 'Quotes',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'dealer_admin', 'dealer_user'],
+        ],
+        // Writing quotes is the dealer's job - to their own customers, from their own prices.
+        'build_quotes' => [
+            'label' => 'Write quotes',
+            'roles' => ['dealer_admin', 'dealer_user'],
+        ],
         'dealers' => [
             'label' => 'Dealer network',
             'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],

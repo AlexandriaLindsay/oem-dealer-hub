@@ -344,3 +344,59 @@ export interface Catalog {
   price_list: { id?: number; name?: string; currency: 'USD' | 'CAD'; is_default?: boolean } | null
   lines: CatalogLine[]
 }
+
+export type QuoteStatus = 'draft' | 'sent' | 'won' | 'lost'
+
+export interface QuoteCustomer {
+  company?: string
+  contact_name: string
+  email?: string
+  phone?: string
+  city?: string
+  region?: string
+}
+
+export interface QuoteRow {
+  id: number
+  number: string
+  status: QuoteStatus
+  /** Sent and past its valid-until date. */
+  expired: boolean
+  customer: QuoteCustomer
+  currency: 'USD' | 'CAD'
+  total: string
+  valid_until: string | null
+  dealer: string
+  created_by: string | null
+  created_at: string | null
+  sent_at: string | null
+}
+
+export interface QuoteLineData {
+  kind: 'model' | 'option' | 'custom'
+  item_id: number | null
+  description: string
+  quantity: number
+  /** The list price when added; null for custom lines and "price on request". */
+  list_price: string | null
+  unit_price: string
+  line_total: string
+}
+
+export interface QuoteDetail extends QuoteRow {
+  notes: string | null
+  subtotal: string
+  discount: string
+  decided_at: string | null
+  from: { dealer: string; city: string | null; region: string | null; phone: string | null; website: string | null; manufacturer: string; logo_url: string | null }
+  lines: QuoteLineData[]
+  can_edit: boolean
+  can_change_status: boolean
+}
+
+export interface QuotePage {
+  data: QuoteRow[]
+  total: number
+  page: number
+  last_page: number
+}

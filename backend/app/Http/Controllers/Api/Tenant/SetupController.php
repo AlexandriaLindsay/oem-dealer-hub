@@ -42,6 +42,7 @@ class SetupController extends Controller
     {
         $manufacturer = Tenant::current()->manufacturer();
         abort_unless($manufacturer->logo_path, 404);
+        Uploads::abortIfMissing($manufacturer->logo_path);
 
         return Uploads::disk()->response($manufacturer->logo_path, null, [
             'Content-Type' => $manufacturer->logo_mime,

@@ -125,6 +125,19 @@ final class Uploads
         ];
     }
 
+    /**
+     * 404 (and a warning in the log) when a stored file has gone missing,
+     * instead of a server error. The logo is on every page, so a lost file
+     * mustn't break them all.
+     */
+    public static function abortIfMissing(string $path): void
+    {
+        if (! self::disk()->exists($path)) {
+            logger()->warning('Stored file is missing', ['path' => $path, 'manufacturer_id' => Tenant::current()->check() ? Tenant::current()->id() : null]);
+            abort(404);
+        }
+    }
+
     /** Removes stored files again (a save that failed after they were stored). */
     public static function forget(array $paths): void
     {

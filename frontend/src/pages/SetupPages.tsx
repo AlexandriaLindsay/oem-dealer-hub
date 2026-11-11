@@ -120,7 +120,7 @@ export function SettingsPage() {
       <section className="panel">
         <h2>Logo</h2>
         <div className="logo-row">
-          <div className="logo-preview">{current?.logo_url ? <img src={current.logo_url} alt={`${current.name} logo`} /> : <span className="muted">No logo yet</span>}</div>
+          <div className="logo-preview">{current?.logo_url ? <img src={current.logo_url} alt={`${current.name} logo`} onError={(e) => (e.currentTarget.style.display = 'none')} /> : <span className="muted">No logo yet</span>}</div>
           <div>
             <div className="field">
               <label htmlFor="logo-file">{current?.logo_url ? 'Replace the logo' : 'Upload a logo'}</label>

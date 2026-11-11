@@ -36,9 +36,14 @@ trait BelongsToManufacturer
         });
     }
 
+    /**
+     * Every row, across every manufacturer and dealer: lifts the manufacturer
+     * scope and, on dealer-owned models, the dealer scope (VisibleToOwnDealer)
+     * too. For platform staff tools and tests only.
+     */
     public static function withoutTenant(): Builder
     {
-        return static::withoutGlobalScope('manufacturer');
+        return static::withoutGlobalScopes(['manufacturer', 'dealer']);
     }
 
     public function manufacturer(): BelongsTo

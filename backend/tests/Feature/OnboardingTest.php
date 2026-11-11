@@ -105,6 +105,15 @@ class OnboardingTest extends TestCase
         $this->actingAs($this->owner)->get('/api/m/acme/logo')->assertNotFound();
     }
 
+    public function test_a_logo_file_gone_missing_is_a_404_not_a_server_error(): void
+    {
+        $this->uploadLogo();
+        Storage::disk('documents')->delete(Manufacturer::find($this->acme->id)->logo_path);
+
+        // The logo is on every page: a lost file mustn't turn into a 500 everywhere.
+        $this->actingAs($this->owner)->get('/api/m/acme/logo')->assertNotFound();
+    }
+
     public function test_only_reasonable_png_and_jpg_logos_are_accepted(): void
     {
         $svg = UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');

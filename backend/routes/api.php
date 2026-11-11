@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Tenant\MachineImportController;
 use App\Http\Controllers\Api\Tenant\PriceListController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
+use App\Http\Controllers\Api\Tenant\QuoteController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
 use App\Http\Controllers\Api\Tenant\SetupController;
 use App\Http\Controllers\Api\Tenant\StaffController;
@@ -99,6 +100,14 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->whereNumber('document')->middleware('feature:manage_documents');
             Route::get('/documents/{document}/file', [DocumentController::class, 'file'])->whereNumber('document')->middleware('feature:documents');
             Route::get('/machines/{machine}/documents', [DocumentController::class, 'forMachine'])->middleware('feature:documents');
+
+            Route::get('/quotes', [QuoteController::class, 'index'])->middleware('feature:quotes');
+            Route::post('/quotes', [QuoteController::class, 'store'])->middleware('feature:build_quotes');
+            Route::get('/quotes/{quote}', [QuoteController::class, 'show'])->whereNumber('quote')->middleware('feature:quotes');
+            Route::post('/quotes/{quote}', [QuoteController::class, 'update'])->whereNumber('quote')->middleware('feature:build_quotes');
+            Route::post('/quotes/{quote}/status', [QuoteController::class, 'status'])->middleware('feature:build_quotes');
+            Route::post('/quotes/{quote}/copy', [QuoteController::class, 'copy'])->middleware('feature:build_quotes');
+            Route::delete('/quotes/{quote}', [QuoteController::class, 'destroy'])->whereNumber('quote')->middleware('feature:build_quotes');
 
             Route::get('/catalog', CatalogController::class)->middleware('feature:catalog');
             Route::get('/price-lists', [PriceListController::class, 'index'])->middleware('feature:manage_pricing');

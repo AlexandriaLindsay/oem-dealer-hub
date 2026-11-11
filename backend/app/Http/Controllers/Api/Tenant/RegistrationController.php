@@ -171,6 +171,7 @@ class RegistrationController extends Controller
     public function document(int $registration, int $document): StreamedResponse
     {
         $doc = Registration::findOrFail($registration)->documents()->findOrFail($document);
+        Uploads::abortIfMissing($doc->path);
 
         return Uploads::disk()->download($doc->path, $doc->original_name, [
             'Content-Type' => $doc->mime,

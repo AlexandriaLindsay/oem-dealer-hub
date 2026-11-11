@@ -6,15 +6,10 @@ import { formatDate, useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
 import { Loading } from '../components/AddForm'
 import { Field, FormError } from '../components/Form'
+import { money } from '../lib/money'
 
 function asApiError(e: unknown): ApiError {
   return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
-}
-
-/** "48500.00" in USD -> "$48,500.00"; CAD shows "CA$" so the two can't be confused. */
-function money(price: string | null, currency: string): string {
-  if (price === null) return 'Price on request'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(price))
 }
 
 // ---- The catalog: what everyone with prices sees ----

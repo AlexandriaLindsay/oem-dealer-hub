@@ -59,7 +59,10 @@ Phase 2 (billing and launch) has started:
 Phase 3 (commercial) has started. The owner chose it over Azure (no Azure work for now; see memory).
 
 - **Price lists:** `PriceList` / `PriceListItem` (`item_type` model|option, `price_cents`). `App\Support\Money` turns typed prices into cents and back; the API returns prices as "1234.50" strings, null = price on request. `PriceList::forDealer()` gives a dealer's own list or the default. `CatalogController` never lets a dealer see another list, or any list's name. `DealerLink.price_list_id` is set only through `PriceListController::assign` (it isn't fillable).
-- **Next in Phase 3:** quotes (snapshot prices from the dealer's list), then parts orders.
+- **Quotes:** `Quote` (dealer-scoped, numbered per dealer link from 1001, status moves in `Quote::MOVES`) and `QuoteLine` (`list_price_cents` copied in, `unit_price_cents` quoted). `QuoteController::priceLines` prices everything server-side from the dealer's list; only a price the dealer typed is taken from the browser. Only dealers write quotes (`build_quotes`); owner, admin and sales staff read them. The price list is treated as **list prices** (what a dealer quotes from), not dealer cost. Revisit if the owner says lists are cost.
+- `withoutTenant()` lifts the manufacturer **and** dealer scopes (platform tools and tests).
+- A stored file that's gone missing returns a 404 with a log warning (`Uploads::abortIfMissing`), not a 500.
+- **Next in Phase 3:** parts orders.
 
 The other option is the Phase 0 leftovers above. The Azure Blob driver for documents and a ClamAV server belong with the Azure deploy.
 

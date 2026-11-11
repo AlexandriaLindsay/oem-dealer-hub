@@ -329,6 +329,55 @@ mark.placeholder { background: #fff3c4; color: #5c4400; padding: 0 0.2rem; borde
 .notice-inline { color: var(--ok); font-weight: 600; }
 .compact-select { padding: 0.3rem 0.5rem; font-size: 0.9rem; }
 
+/* ---- Quotes ---- */
+.badge-quote-draft { background: var(--bg); border: 1px solid var(--border); color: var(--muted); text-transform: none; }
+.badge-quote-sent { background: var(--accent-soft); color: var(--accent); text-transform: none; }
+.badge-quote-won { background: var(--ok-soft); color: var(--ok); text-transform: none; }
+.badge-quote-lost, .badge-quote-expired { background: var(--danger-soft); color: var(--danger); text-transform: none; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap.flat { border: 0; border-radius: 0; }
+.quote-lines td { white-space: normal; vertical-align: top; }
+.quote-option td:first-child { padding-left: 2rem; color: var(--muted); }
+.line-input { width: 8.5rem; text-align: right; padding: 0.35rem 0.5rem; font-variant-numeric: tabular-nums; }
+.line-input.qty { width: 4.5rem; }
+.line-input.wide { width: 100%; min-width: 12rem; text-align: left; }
+.block { display: block; }
+.add-model { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem; }
+.add-model-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
+.add-model-row .field { margin-bottom: 0.75rem; }
+.option-picks { flex-direction: column; gap: 0.25rem; }
+.discount-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+.discount-row label { font-weight: 600; }
+.quote-totals { margin: 1rem 0 0 auto; max-width: 340px; }
+.quote-totals div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.3rem 0; }
+.quote-totals dt { color: var(--muted); }
+.quote-totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+.quote-total { border-top: 1px solid var(--border); font-weight: 700; font-size: 1.1rem; }
+.quote-total dt { color: var(--text); }
+.quote-totals .hint { text-align: right; }
+
+/* The printable quote: plain, black on white, whatever the screen theme. */
+.quote-print { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem; background: #fff; color: #111; min-height: 100vh; }
+.quote-print .muted, .quote-print .hint, .quote-print .quote-totals dt { color: #555; }
+.quote-print table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+.quote-print th, .quote-print td { border-bottom: 1px solid #ddd; padding: 0.5rem; color: #111; }
+.quote-print .quote-option td:first-child { color: #444; }
+.quote-print-head { display: flex; justify-content: space-between; gap: 2rem; flex-wrap: wrap; border-bottom: 2px solid #111; padding-bottom: 1rem; }
+.quote-print-head h1 { margin: 0 0 0.25rem; }
+.quote-print-head p { margin: 0; }
+.quote-print-meta { text-align: right; }
+.quote-print-meta img { max-height: 40px; max-width: 180px; object-fit: contain; }
+.quote-print-meta h2 { margin: 0.5rem 0 0.25rem; }
+.quote-print-to { margin-top: 1.25rem; }
+.quote-print-to h3 { margin: 0 0 0.25rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #555; }
+.quote-print footer { margin-top: 2rem; border-top: 1px solid #ddd; padding-top: 0.75rem; }
+.print-actions { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+@media print {
+  .print-actions { display: none; }
+  .quote-print { padding: 0; }
+  body { background: #fff; }
+}
+
 /* ---- Billing ---- */
 .button-primary { display: inline-block; background: var(--accent); color: var(--accent-text); border-radius: var(--radius); padding: 0.6rem 1.1rem; font-weight: 600; text-decoration: none; }
 .interval-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 0.25rem 0 1rem; }

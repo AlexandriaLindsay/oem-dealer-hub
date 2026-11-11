@@ -13,6 +13,7 @@ use App\Models\PriceListItem;
 use App\Models\ProductLine;
 use App\Models\ProductModel;
 use App\Models\ProductOption;
+use App\Models\Quote;
 use App\Models\Registration;
 use App\Models\User;
 use App\Support\Plan;
@@ -205,6 +206,58 @@ class DatabaseSeeder extends Seeder
         }
 
         $canadian->forceFill(['price_list_id' => $ca->id])->save();
+
+        $this->quotes($canadian, $models, $ca);
+    }
+
+    /**
+     * Prairie's quotes, in CAD from their list: one won, one sent, one draft.
+     * Runs inside Tenant::run(Acme).
+     *
+     * @param  array<string, ProductModel>  $models
+     */
+    private function quotes(DealerLink $link, array $models, PriceList $list): void
+    {
+        $dealer = User::where('email', 'dealer@prairie.test')->first();
+        $prices = $list->priceMap();
+        $tilt = $models['S-400']->options->firstWhere('name', 'Hydraulic tilt');
+        $tires = $models['S-400']->options->firstWhere('name', 'Wide tires');
+
+        $quotes = [
+            // customer, status, sent days ago, lines [kind, item, qty, unit cents or null for list], discount
+            [['company' => 'Hill Farms', 'contact_name' => 'Dana Hill', 'city' => 'Brandon', 'region' => 'MB'], Quote::WON, 20,
+                [['model', $models['S-400'], 1, null], ['option', $tilt, 1, null]], 150000],
+            [['company' => 'Red River Earthworks', 'contact_name' => 'Sam Ortiz', 'email' => 'sam@redriver.example'], Quote::SENT, 3,
+                [['model', $models['S-600'], 2, null], ['custom', 'Freight to site', 1, 120000]], 0],
+            [['contact_name' => 'Jordan Lee', 'phone' => '204-555-0199'], Quote::DRAFT, null,
+                [['model', $models['S-400'], 1, null], ['option', $tires, 1, 180000]], 0],
+        ];
+
+        foreach ($quotes as $n => [$customer, $status, $sentAgo, $lines, $discount]) {
+            $quote = new Quote(['customer' => $customer, 'valid_until' => now()->addDays(30 - ($sentAgo ?? 0))]);
+            $quote->forceFill([
+                'dealer_link_id' => $link->id, 'number' => Quote::FIRST_NUMBER + $n, 'currency' => $list->currency,
+                'status' => $status, 'created_by' => $dealer->id,
+                'sent_at' => $sentAgo ? now()->subDays($sentAgo) : null,
+                'decided_at' => $status === Quote::WON ? now()->subDays(5) : null,
+            ])->save();
+
+            $subtotal = 0;
+            foreach ($lines as $i => [$kind, $item, $qty, $unit]) {
+                $key = $kind === 'model' ? 'model:'.$item->id : ($kind === 'option' ? 'option:'.$item->id : null);
+                $listPrice = $key ? ($prices[$key] ?? null) : null;
+                $unit ??= $listPrice;
+                $subtotal += $unit * $qty;
+                $quote->lines()->create([
+                    'position' => $i, 'kind' => $kind, 'item_id' => $kind === 'custom' ? null : $item->id,
+                    'description' => match ($kind) {
+                        'model' => $item->name, 'option' => $models['S-400']->name.' - '.$item->name, default => $item
+                    },
+                    'quantity' => $qty, 'list_price_cents' => $listPrice, 'unit_price_cents' => $unit, 'line_total_cents' => $unit * $qty,
+                ]);
+            }
+            $quote->forceFill(['subtotal_cents' => $subtotal, 'discount_cents' => $discount, 'total_cents' => $subtotal - $discount])->save();
+        }
     }
 
     /**

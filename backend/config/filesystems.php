@@ -34,7 +34,9 @@ return [
         // Laravel - only through the API's access checks (config/dealerdock.php).
         'documents' => [
             'driver' => 'local',
-            'root' => storage_path('app/private/documents'),
+            // DEALERDOCK_DOCUMENTS_ROOT lets a second copy of the app (a preview, a
+            // test run) keep its files apart from your local ones.
+            'root' => env('DEALERDOCK_DOCUMENTS_ROOT', storage_path('app/private/documents')),
             'serve' => false,
             'throw' => true,
             'report' => false,

@@ -15,6 +15,7 @@ const NAV: { to: string; label: string; feature: string }[] = [
   { to: 'documents', label: 'Manuals', feature: 'documents' },
   // Price lists (manage_pricing) are reached from the Prices page.
   { to: 'prices', label: 'Prices', feature: 'catalog' },
+  { to: 'quotes', label: 'Quotes', feature: 'quotes' },
   { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },
   { to: 'staff', label: 'Staff', feature: 'manage_staff' },
@@ -67,7 +68,8 @@ export function Layout() {
           <span>DealerDock</span>
         </div>
 
-        {current.logo_url && <img className="brand-logo" src={current.logo_url} alt={`${current.name} logo`} />}
+        {/* A logo that won't load just isn't shown - no broken-image box on every page. */}
+        {current.logo_url && <img className="brand-logo" src={current.logo_url} alt={`${current.name} logo`} onError={(e) => (e.currentTarget.style.display = 'none')} />}
 
         {/* The brand switcher - one login across every manufacturer. */}
         {me.manufacturers.length > 1 ? (

@@ -104,7 +104,7 @@ Phase 3 (commercial), in progress:
 
 - [x] Price lists: USD or CAD, a price per model and option (stored in cents), a default list, dealers assigned to lists, copying a list. Starter includes 1 list (counted in the downgrade check).
 - [x] Prices page: each dealer sees only their own list (or the default), never another dealer's or the list's name. Unpriced items show "Price on request".
-- [ ] Quotes: build from the dealer's prices, history
+- [x] Quotes: dealers build them for customers from their own prices (model, options, quantity, their own lines, price overrides, a discount), numbered per dealer (Q-1001…), draft → sent → won/lost, locked once sent, copy, printable page. Prices are copied in, so later price changes never alter a sent quote. Sales staff can read every dealer's quotes; dealers see only their own.
 - [ ] Parts orders
 - [ ] Territories, broadcasts, usage analytics (Pro)
 

@@ -163,6 +163,7 @@ class DocumentController extends Controller
     public function file(Request $request, int $document): StreamedResponse
     {
         $doc = Document::findOrFail($document);
+        Uploads::abortIfMissing($doc->path);
         $inline = $request->boolean('inline') && in_array($doc->mime, ['application/pdf', 'image/jpeg', 'image/png'], true);
 
         $headers = [

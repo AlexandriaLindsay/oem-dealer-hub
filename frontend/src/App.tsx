@@ -12,6 +12,7 @@ import { ImportPage } from './pages/ImportPage'
 import { SettingsPage } from './pages/SetupPages'
 import { BillingPage } from './pages/BillingPage'
 import { CatalogPage, PriceListPage, PriceListsPage } from './pages/PricingPages'
+import { QuotePage, QuotePrintPage, QuotesPage } from './pages/QuotePages'
 import { LandingPage, PricingPage } from './pages/PublicPages'
 import { AcceptTermsPage, PrivacyPage, TermsPage } from './pages/LegalPages'
 
@@ -116,9 +117,22 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="billing" element={<BillingPage />} />
             <Route path="prices" element={<CatalogPage />} />
+            <Route path="quotes" element={<QuotesPage />} />
+            <Route path="quotes/:id" element={<QuotePage />} />
             <Route path="price-lists" element={<PriceListsPage />} />
             <Route path="price-lists/:id" element={<PriceListPage />} />
           </Route>
+          {/* The printable quote: no app frame around it, same sign-in checks. */}
+          <Route
+            path="/m/:slug/quotes/:id/print"
+            element={
+              <RequireAuth>
+                <KnownManufacturer>
+                  <QuotePrintPage />
+                </KnownManufacturer>
+              </RequireAuth>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

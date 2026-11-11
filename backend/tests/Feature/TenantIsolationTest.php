@@ -13,6 +13,7 @@ use App\Models\PriceListItem;
 use App\Models\ProductLine;
 use App\Models\ProductModel;
 use App\Models\ProductOption;
+use App\Models\Quote;
 use App\Models\Registration;
 use App\Tenancy\MissingTenantException;
 use App\Tenancy\Tenant;
@@ -400,6 +401,56 @@ class TenantIsolationTest extends TestCase
 
         $this->actingAs($user)->getJson('/api/m/acme/catalog')->assertJsonPath('lines.0.models.0.name', 'S-400')->assertJsonPath('lines.0.models.0.price', '48500.00');
         $this->actingAs($user)->getJson('/api/m/bolt/catalog')->assertJsonPath('lines.0.models.0.name', 'B-72')->assertJsonPath('lines.0.models.0.price', '3200.00');
+    }
+
+    // ---- Quotes ----
+
+    public function test_a_dealer_only_sees_their_own_quotes(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $prairie = $this->dealer('Prairie Equipment', $acme);
+        $rival = $this->dealer('Rival Equipment', $acme);
+        Tenant::run($acme, function () {
+            $list = PriceList::create(['name' => 'US', 'currency' => 'USD']);
+            $list->forceFill(['is_default' => true])->save();
+        });
+        $rivalUser = $this->dealerUser($rival);
+        $rivalQuote = $this->actingAs($rivalUser)->postJson('/api/m/acme/quotes', ['customer' => ['contact_name' => 'Rival Secret Customer']])->json('id');
+        $user = $this->dealerUser($prairie);
+
+        $this->actingAs($user)->getJson('/api/m/acme/quotes')->assertOk()->assertJsonPath('total', 0);
+        $this->actingAs($user)->getJson('/api/m/acme/quotes?q=Secret')->assertJsonPath('total', 0);
+        $this->actingAs($user)->getJson("/api/m/acme/quotes/{$rivalQuote}")->assertNotFound();
+        $this->actingAs($user)->postJson("/api/m/acme/quotes/{$rivalQuote}", ['customer' => ['contact_name' => 'Hijacked']])->assertNotFound();
+        $this->actingAs($user)->postJson("/api/m/acme/quotes/{$rivalQuote}/status", ['status' => 'sent'])->assertNotFound();
+        $this->actingAs($user)->postJson("/api/m/acme/quotes/{$rivalQuote}/copy")->assertNotFound();
+        $this->actingAs($user)->deleteJson("/api/m/acme/quotes/{$rivalQuote}")->assertNotFound();
+
+        $this->assertSame('Rival Secret Customer', Quote::withoutTenant()->find($rivalQuote)->customer['contact_name']);
+    }
+
+    public function test_quotes_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $boltModel = $this->productModel($bolt, 'B-72');
+        $boltDealer = $this->dealer('Bolt Dealer', $bolt);
+        $acmeDealer = $this->dealer('Acme Dealer', $acme);
+        foreach ([$acme, $bolt] as $m) {
+            Tenant::run($m, function () {
+                $list = PriceList::create(['name' => 'US', 'currency' => 'USD']);
+                $list->forceFill(['is_default' => true])->save();
+            });
+        }
+        $boltQuote = $this->actingAs($this->dealerUser($boltDealer))->postJson('/api/m/bolt/quotes', ['customer' => ['contact_name' => 'Bolt customer']])->json('id');
+        $acmeUser = $this->dealerUser($acmeDealer);
+
+        $this->actingAs($this->staff($acme))->getJson('/api/m/acme/quotes')->assertJsonPath('total', 0);
+        $this->actingAs($this->staff($acme))->getJson("/api/m/acme/quotes/{$boltQuote}")->assertNotFound();
+        // An Acme quote can't use Bolt's model.
+        $this->actingAs($acmeUser)->postJson('/api/m/acme/quotes', [
+            'customer' => ['contact_name' => 'X'], 'lines' => [['kind' => 'model', 'item_id' => $boltModel->id, 'quantity' => 1, 'unit_price' => '1']],
+        ])->assertUnprocessable()->assertJsonValidationErrors('lines.0.item_id');
     }
 
     // ---- Billing ----
