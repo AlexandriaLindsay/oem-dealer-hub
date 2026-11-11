@@ -22,7 +22,7 @@ const SECURITY = [
   'Two-factor sign-in for everyone',
   'Each manufacturer only ever sees its own information; each dealer only its own machines - checked by automated tests',
   'Every upload scanned for viruses',
-  'No ads, no analytics, no trackers',
+  'No ads, no third-party analytics, no trackers',
 ]
 
 export function LandingPage() {

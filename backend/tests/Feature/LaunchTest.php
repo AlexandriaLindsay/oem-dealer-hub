@@ -34,7 +34,9 @@ class LaunchTest extends TestCase
             // Pro extras that exist are listed plainly; ones not built yet say so,
             // rather than being sold as if they were.
             ->assertJsonPath('plans.1.extras.0', ['label' => 'Broadcasts to your dealers', 'coming' => false])
-            ->assertJsonPath('plans.1.extras.1', ['label' => 'Usage analytics', 'coming' => true])
+            ->assertJsonPath('plans.1.extras.1', ['label' => 'Usage analytics', 'coming' => false])
+            ->assertJsonPath('plans.1.extras.2', ['label' => 'Territories', 'coming' => true])
+            ->assertJsonPath('legal.updated_on', '2026-11-11')
             ->assertJsonPath('legal.version', config('dealerdock.legal.version'))
             ->assertJsonPath('legal.reviewed', false)
             ->assertJsonPath('turnstile_site_key', null);

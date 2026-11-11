@@ -6,6 +6,7 @@ import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage, TwoFactor
 import { DashboardPage, DealersPage, ProductsPage, StaffPage } from './pages/TenantPages'
 import { MachinePage, MachinesPage } from './pages/MachinePages'
 import { FleetPage } from './pages/FleetPage'
+import { UsagePage } from './pages/UsagePage'
 import { RegistrationPage, RegistrationsPage } from './pages/RegistrationPages'
 import { LibraryPage } from './pages/LibraryPages'
 import { ImportPage } from './pages/ImportPage'
@@ -125,6 +126,7 @@ export default function App() {
             <Route path="parts-orders/new" element={<NewPartsOrderPage />} />
             <Route path="parts-orders/:id" element={<PartsOrderPage />} />
             <Route path="broadcasts" element={<BroadcastsPage />} />
+            <Route path="usage" element={<UsagePage />} />
             <Route path="broadcasts/:id" element={<BroadcastPage />} />
             <Route path="announcements" element={<AnnouncementsPage />} />
             <Route path="announcements/:id" element={<AnnouncementPage />} />

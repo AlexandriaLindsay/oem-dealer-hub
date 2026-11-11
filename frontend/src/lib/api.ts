@@ -464,3 +464,23 @@ export interface Announcement {
   sent_at: string | null
   read: boolean
 }
+
+/** GET /m/{slug}/usage - which dealers use DealerDock, from per-person daily counts (Pro). */
+export interface UsageReport {
+  days: 30 | 90
+  from: string
+  summary: { dealers_total: number; dealers_active: number; people_active: number; visits: number }
+  /** Every day in the range, oldest first, zeros included. */
+  daily: { day: string; dealers: number }[]
+  /** Every active dealer, busiest first - including ones that haven't used it. */
+  dealers: {
+    dealer_link_id: number
+    name: string
+    people: number
+    days_active: number
+    last_active: string | null
+    visits: number
+    top_areas: string[]
+  }[]
+  areas: { area: string; dealer_visits: number; staff_visits: number }[]
+}

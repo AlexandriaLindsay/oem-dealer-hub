@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { MACHINE_STATUSES, STATUS_LABELS, type MachineStatus } from '../lib/api'
+import { ticks } from '../lib/ticks'
 
 /*
  * Charts for machine statuses. Each status keeps one colour everywhere
@@ -91,17 +92,6 @@ export interface StackedRow {
   to?: string
   total: number
   statuses: Record<MachineStatus, number>
-}
-
-/** Clean axis ticks from 0 to at least `max`: steps of 1, 2 or 5 times a power of ten. */
-function ticks(max: number): number[] {
-  if (max <= 0) return [0, 1]
-  const rough = max / 4
-  const power = 10 ** Math.floor(Math.log10(rough))
-  const step = [1, 2, 5, 10].map((m) => m * power).find((s) => s >= rough) ?? power * 10
-  const out: number[] = []
-  for (let v = 0; v < max + step; v += step) out.push(v)
-  return out
 }
 
 /**

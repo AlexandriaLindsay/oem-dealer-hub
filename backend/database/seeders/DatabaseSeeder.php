@@ -17,6 +17,7 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\Registration;
+use App\Models\UsageDay;
 use App\Models\User;
 use App\Support\Plan;
 use App\Support\Scanning\ScanResult;
@@ -68,6 +69,45 @@ class DatabaseSeeder extends Seeder
         // Acme is fully set up (logo and all), so its checklist is gone; Bolt
         // is part way, so its owner sees "Getting started" on the dashboard.
         Tenant::run($acme, fn () => $this->logo($acme));
+
+        Tenant::run($acme, fn () => $this->usage($acmePrairie));
+    }
+
+    /**
+     * Two months of Acme usage, so the Usage report has something to show:
+     * Pat at Prairie most weekdays, Acme's own staff, and Northern not at
+     * all (it has no logins) - the "worth a call" row. Fixed seed, so every
+     * reseed looks the same. Runs inside Tenant::run(Acme).
+     */
+    private function usage(DealerLink $prairie): void
+    {
+        mt_srand(42);
+        $people = [
+            // user, dealer link, chance of using it on a weekday, areas they use
+            [User::where('email', 'dealer@prairie.test')->value('id'), $prairie->id, 0.7, ['dashboard', 'machines', 'prices', 'quotes', 'parts-orders', 'documents', 'announcements']],
+            [User::where('email', 'owner@acme.test')->value('id'), null, 0.8, ['dashboard', 'machines', 'dealers', 'fleet', 'registrations', 'price-lists', 'broadcasts']],
+            [User::where('email', 'rep@acme.test')->value('id'), null, 0.5, ['dashboard', 'machines', 'fleet', 'quotes']],
+        ];
+
+        $rows = [];
+        for ($ago = 60; $ago >= 0; $ago--) {
+            $day = now()->subDays($ago);
+            foreach ($people as [$user, $link, $chance, $areas]) {
+                $odds = $day->isWeekend() ? $chance / 6 : $chance;
+                if (mt_rand() / mt_getrandmax() > $odds) {
+                    continue;
+                }
+                // A few areas a day, the first ones (their main jobs) more often.
+                foreach (array_slice($areas, 0, mt_rand(1, 4)) as $i => $area) {
+                    $rows[] = [
+                        'manufacturer_id' => Tenant::current()->id(), 'user_id' => $user, 'dealer_link_id' => $link,
+                        'day' => $day->toDateString(), 'area' => $area, 'count' => mt_rand(1, 12 - 2 * $i),
+                    ];
+                }
+            }
+        }
+
+        UsageDay::insert($rows);
     }
 
     /** A plain wordmark PNG, drawn here so the demo needs no image files. */

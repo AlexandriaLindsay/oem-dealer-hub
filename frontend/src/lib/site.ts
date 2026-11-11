@@ -15,6 +15,8 @@ export interface Site {
   }[]
   legal: {
     version: string
+    /** When the texts last changed (YYYY-MM-DD). */
+    updated_on: string
     reviewed: boolean
     company_name: string | null
     company_address: string | null

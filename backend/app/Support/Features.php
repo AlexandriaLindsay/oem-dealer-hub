@@ -145,7 +145,7 @@ final class Features
         // so nobody pays for something that isn't there yet - remove it when a
         // feature ships.
         'broadcasts' => ['label' => 'Broadcasts to your dealers', 'roles' => ['owner', 'admin', 'inside_sales']],
-        'usage_analytics' => ['label' => 'Usage analytics', 'roles' => ['owner', 'admin'], 'coming' => true],
+        'usage_analytics' => ['label' => 'Usage analytics', 'roles' => ['owner', 'admin']],
         'territories' => ['label' => 'Territories', 'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'], 'coming' => true],
         'custom_branding' => ['label' => 'Own subdomain and colours', 'roles' => ['owner', 'admin'], 'coming' => true],
         'erp_integration' => ['label' => 'ERP integration (quoted separately)', 'roles' => ['owner', 'admin'], 'coming' => true],

@@ -33,6 +33,7 @@ class LegalController extends Controller
             ])->values(),
             'legal' => [
                 'version' => $legal['version'],
+                'updated_on' => $legal['updated_on'],
                 'reviewed' => $legal['reviewed'],
                 'company_name' => $legal['company_name'],
                 'company_address' => $legal['company_address'],

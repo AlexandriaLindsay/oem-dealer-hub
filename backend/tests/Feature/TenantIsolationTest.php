@@ -17,6 +17,7 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\Registration;
+use App\Models\UsageDay;
 use App\Tenancy\MissingTenantException;
 use App\Tenancy\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -510,6 +511,32 @@ class TenantIsolationTest extends TestCase
         $this->actingAs($dealerUser)->getJson('/api/m/acme/announcements')->assertJsonCount(0);
         $this->actingAs($dealerUser)->getJson("/api/m/acme/announcements/{$boltBroadcast}")->assertNotFound();
         $this->assertNull(Broadcast::withoutTenant()->find($boltBroadcast)->withdrawn_at);
+    }
+
+    // ---- Usage analytics ----
+
+    public function test_usage_is_counted_and_reported_per_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $shared = $this->dealer('Prairie Equipment', $acme, $bolt);
+        $user = $this->dealerUser($shared);
+
+        // The same person using both brands is counted under each separately.
+        $visit = fn (string $slug) => $this->actingAs($user)->postJson("/api/m/{$slug}/usage/visits", ['area' => 'machines'])->assertNoContent();
+        $visit('bolt');
+        $visit('bolt');
+        $visit('acme');
+
+        $this->actingAs($this->staff($acme))->getJson('/api/m/acme/usage')->assertOk()->assertJsonPath('summary.visits', 1)
+            ->assertJsonPath('dealers.0.visits', 1);
+        $this->actingAs($this->staff($bolt))->getJson('/api/m/bolt/usage')->assertOk()->assertJsonPath('summary.visits', 2);
+        $this->assertSame([1, 2], UsageDay::withoutTenant()->orderBy('manufacturer_id')->pluck('count')->all());
+        // Each brand's row carries that brand's own dealer link.
+        $this->assertSame(
+            DealerLink::withoutTenant()->where('dealer_id', $shared->id)->orderBy('manufacturer_id')->pluck('id')->all(),
+            UsageDay::withoutTenant()->orderBy('manufacturer_id')->pluck('dealer_link_id')->all(),
+        );
     }
 
     // ---- Billing ----

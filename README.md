@@ -46,6 +46,12 @@ Password reset and invite emails go to `backend/storage/logs/laravel.log` locall
 
 Broadcast emails are **queued** (sending to hundreds of dealers shouldn't hold up the page). To deliver them locally, run a worker in a third terminal: `cd backend && php artisan queue:work`. Without one, they wait in the `jobs` table.
 
+Scheduled jobs (for now just `usage:prune`, which deletes usage counts older than 13 months, daily) need `php artisan schedule:run` every minute in production - cron, or the host's equivalent. Locally, `php artisan schedule:work` runs them, or run `php artisan usage:prune` by hand.
+
+The demo seed includes two months of Acme usage, so **Usage** (signed in as `owner@acme.test`) has something to show. Northern Ag has no logins, so it shows as "not used".
+
+**Updating the privacy policy or terms:** change the text, then bump `DEALERDOCK_TERMS_VERSION` (and `DEALERDOCK_LEGAL_UPDATED_ON`) in `config/dealerdock.php`. Everyone is asked to agree again on their next visit. If your local `backend/.env` sets `DEALERDOCK_TERMS_VERSION`, it overrides the default, so update or remove it there too.
+
 ## Tests
 
 ```bash
@@ -109,7 +115,8 @@ Phase 3 (commercial), in progress:
 - [x] Quotes: dealers build them for customers from their own prices (model, options, quantity, their own lines, price overrides, a discount), numbered per dealer (Q-1001…), draft → sent → won/lost, locked once sent, copy, printable page. Prices are copied in, so later price changes never alter a sent quote. Sales staff can read every dealer's quotes; dealers see only their own.
 - [x] Parts orders: dealers order by part number (or paste lines from a spreadsheet), with PO, machine serial, shipping and ship-to; the parts desk works an oldest-first queue: start → shipped (carrier, tracking) or cancelled (with a reason), and everyone gets an email. No prices: there's no parts price list yet, so the parts desk invoices as it does today.
 - [x] Broadcasts (Pro): announcements to all or chosen dealers, optionally emailed (queued); recipients fixed when sent; read tracking per person; withdraw. Dealers read them under Announcements.
-- [ ] Territories, usage analytics, own subdomain and colours (Pro, marked "coming soon" until built)
+- [x] Usage analytics (Pro): which dealers use DealerDock, how often and for what, including the ones who don't. Counts page visits per person, area and day (no addresses, no content), only on plans with the report, and keeps them 13 months (`usage:prune`). The privacy policy says so.
+- [ ] Territories, own subdomain and colours (Pro, marked "coming soon" until built)
 
 ## Billing
 

@@ -38,7 +38,9 @@ return [
      * The company details fill the placeholders in the text.
      */
     'legal' => [
-        'version' => env('DEALERDOCK_TERMS_VERSION', '2026-11-11'),
+        'version' => env('DEALERDOCK_TERMS_VERSION', '2026-11-11.2'),
+        // When the texts last changed, shown on both pages. (The version can change more than once a day.)
+        'updated_on' => env('DEALERDOCK_LEGAL_UPDATED_ON', '2026-11-11'),
         'reviewed' => (bool) env('DEALERDOCK_LEGAL_REVIEWED', false),
         'company_name' => env('DEALERDOCK_COMPANY_NAME'),
         'company_address' => env('DEALERDOCK_COMPANY_ADDRESS'),

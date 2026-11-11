@@ -4,6 +4,7 @@ import { api, type ManufacturerAccess } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { tourFor } from '../lib/tours'
 import { trialEndText } from '../lib/tenant'
+import { useRecordVisit } from '../lib/usage'
 import { Tour } from './Tour'
 
 /** The nav, each item shown only to people with its feature. data-tour names come from `nav-` + its path. */
@@ -21,6 +22,7 @@ const NAV: { to: string; label: string; feature: string }[] = [
   { to: 'broadcasts', label: 'Broadcasts', feature: 'broadcasts' },
   { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },
+  { to: 'usage', label: 'Usage', feature: 'usage_analytics' },
   { to: 'staff', label: 'Staff', feature: 'manage_staff' },
   { to: 'settings', label: 'Settings', feature: 'setup' },
   { to: 'billing', label: 'Billing', feature: 'billing' },
@@ -39,6 +41,7 @@ export function Layout() {
   const current = useCurrentManufacturer()
   // null: not decided yet this visit; true: showing; false: closed.
   const [touring, setTouring] = useState<boolean | null>(null)
+  useRecordVisit(current?.slug, current?.standing === 'lapsed')
 
   if (!me || !current) return null
 

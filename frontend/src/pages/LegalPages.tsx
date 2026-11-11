@@ -30,7 +30,11 @@ function LegalShell({ title, site, children }: { title: string; site: Site | nul
     <PublicLayout>
       <article className="legal">
         <h1>{title}</h1>
-        {site && <p className="muted">Version {site.legal.version} · last updated {formatDate(site.legal.version)}</p>}
+        {site && (
+          <p className="muted">
+            Version {site.legal.version} · last updated {formatDate(site.legal.updated_on)}
+          </p>
+        )}
         {site && !site.legal.reviewed && (
           <div className="callout" role="note">
             <strong>Draft.</strong> This hasn't been reviewed by a lawyer yet. It describes how DealerDock works today, but it isn't final.
@@ -77,10 +81,15 @@ export function PrivacyPage() {
         <li>
           <strong>Technical:</strong> your IP address and the time of each request, in server logs and to limit repeated sign-in attempts. Which guided tours you've seen, and when you agreed to these terms.
         </li>
+        <li>
+          <strong>How DealerDock is used:</strong> on manufacturer accounts with the usage report (Pro), for each person, each day, which areas of DealerDock they opened (for example machines, quotes, parts orders) and how many times. Not which machine, quote or document, not what you searched for, not your IP address. The manufacturer's owner and admins see it, to know which dealers use DealerDock and for what. It's kept for 13 months, then deleted. Accounts without the report record nothing.
+        </li>
       </ul>
 
       <h2>Cookies and tracking - the complete list</h2>
-      <p>DealerDock uses no analytics, no advertising, no tracking pixels and no third-party trackers. It stores nothing in your browser's local storage. These are all the cookies and checks involved:</p>
+      <p>
+        DealerDock uses no third-party analytics, no advertising, no tracking pixels and no third-party trackers. The only usage information is the per-day count described above, kept by DealerDock itself. It stores nothing in your browser's local storage. These are all the cookies and checks involved:
+      </p>
       <div className="table-wrap">
         <table>
           <thead>

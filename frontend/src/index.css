@@ -26,6 +26,8 @@
   --status-rental: #1baf7a; --status-rental-ink: #ffffff;
   --status-sold: #eda100; --status-sold-ink: #0b0b0b;
   --status-used: #e87ba4; --status-used-ink: #ffffff;
+  /* The usage chart: one series, so categorical slot 1 (the same validated blue). */
+  --usage: #2a78d6;
   color-scheme: light;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 15px;
@@ -54,6 +56,7 @@
     --status-rental: #199e70;
     --status-sold: #c98500; --status-sold-ink: #ffffff;
     --status-used: #d55181;
+    --usage: #3987e5;
     color-scheme: dark;
   }
 }
@@ -499,3 +502,30 @@ table.numeric td:not(:first-child), table.numeric th:not(:first-child) { text-al
   .bars-track, .bars-axis { margin-right: 2.25rem; }
   .auth-card { padding: 1.5rem; }
 }
+
+/* ---- Usage report ---- */
+/* The period switch drops under the heading on a phone rather than squeezing. */
+.usage-head { flex-wrap: wrap; align-items: flex-start; }
+.usage-head .toggle { flex: none; }
+.usage-tiles { margin-bottom: 0.5rem; }
+.usage-range { margin: 0 0 1.5rem; font-size: 0.9rem; }
+.usage-key { background: var(--usage); height: 8px; border-radius: 2px; }
+.usage-daily { max-height: 22rem; overflow-y: auto; }
+/* "Last used" and "Used most" are words, not numbers. */
+.usage-dealers td:nth-child(n + 5), .usage-dealers th:nth-child(n + 5) { text-align: left; }
+.usage-dealers tr.is-unused td:last-child { text-align: left; }
+
+/* Daily columns: anchored to the baseline, 4px rounded tops, a 2px gap between days. */
+.cols { position: relative; margin-top: 1rem; --axis-w: 2rem; }
+.cols-plot { display: flex; height: 180px; }
+.cols-axis { position: relative; width: var(--axis-w); flex: none; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cols-axis span { position: absolute; right: 0.5rem; transform: translateY(50%); }
+.cols-area { position: relative; flex: 1; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--border); min-width: 0; }
+.cols-grid { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--border); opacity: 0.6; }
+.cols-slot { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.cols-slot.is-hot { background: var(--accent-soft); border-radius: 4px 4px 0 0; }
+.cols-bar { display: block; width: 100%; max-width: 14px; margin: 0 auto; background: var(--usage); border-radius: 4px 4px 0 0; min-height: 3px; }
+.cols-dates { display: flex; gap: 2px; margin-left: var(--axis-w); font-size: 0.75rem; color: var(--muted); }
+.cols-dates span { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: visible; }
+.cols-dates span:last-child { text-align: right; direction: rtl; }
+.cols-note { font-size: 0.85rem; margin: 0.75rem 0 0; }

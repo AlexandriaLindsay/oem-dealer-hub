@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\Tenant\QuoteController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
 use App\Http\Controllers\Api\Tenant\SetupController;
 use App\Http\Controllers\Api\Tenant\StaffController;
+use App\Http\Controllers\Api\Tenant\UsageController;
 use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\TwoFactorController;
 use Illuminate\Support\Facades\Route;
@@ -124,6 +125,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/broadcasts/{broadcast}/withdraw', [BroadcastController::class, 'withdraw'])->middleware('feature:broadcasts');
             Route::get('/announcements', [BroadcastController::class, 'announcements'])->middleware('feature:announcements');
             Route::get('/announcements/{broadcast}', [BroadcastController::class, 'announcement'])->middleware('feature:announcements');
+
+            Route::get('/usage', [UsageController::class, 'report'])->middleware('feature:usage_analytics');
+            // The app reports each page someone opens; the controller decides whether it counts.
+            Route::post('/usage/visits', [UsageController::class, 'visit'])->middleware('throttle:120,1');
 
             Route::get('/catalog', CatalogController::class)->middleware('feature:catalog');
             Route::get('/price-lists', [PriceListController::class, 'index'])->middleware('feature:manage_pricing');
