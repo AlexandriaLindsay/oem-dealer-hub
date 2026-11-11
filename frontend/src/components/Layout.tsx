@@ -16,6 +16,7 @@ const NAV: { to: string; label: string; feature: string }[] = [
   // Price lists (manage_pricing) are reached from the Prices page.
   { to: 'prices', label: 'Prices', feature: 'catalog' },
   { to: 'quotes', label: 'Quotes', feature: 'quotes' },
+  { to: 'parts-orders', label: 'Parts orders', feature: 'parts_orders' },
   { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },
   { to: 'staff', label: 'Staff', feature: 'manage_staff' },

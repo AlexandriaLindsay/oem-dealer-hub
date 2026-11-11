@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Models\Machine;
 use App\Models\Manufacturer;
 use App\Models\Membership;
+use App\Models\PartsOrder;
 use App\Models\PriceList;
 use App\Models\PriceListItem;
 use App\Models\ProductLine;
@@ -208,6 +209,38 @@ class DatabaseSeeder extends Seeder
         $canadian->forceFill(['price_list_id' => $ca->id])->save();
 
         $this->quotes($canadian, $models, $ca);
+        $this->partsOrders($canadian);
+    }
+
+    /** Prairie's parts orders: one shipped, one being prepared, one rush order just in. Inside Tenant::run(Acme). */
+    private function partsOrders(DealerLink $link): void
+    {
+        $dealer = User::where('email', 'dealer@prairie.test')->first();
+        $parts = User::where('email', 'owner@acme.test')->first();
+        $shipTo = ['name' => 'Prairie Equipment', 'address' => '1200 Victoria Ave E', 'city' => 'Brandon', 'region' => 'MB', 'postal_code' => 'R7A 1Z9', 'country' => 'CA'];
+
+        $orders = [
+            // po, serial, method, status, days ago, lines
+            ['PE-2291', 'AS4-24002', 'standard', PartsOrder::SHIPPED, 9, [['AS4-1102', 'Cutting edge, 8 ft', 2], ['HW-0450', 'Plow bolt 5/8 x 2', 24]]],
+            ['PE-2304', 'AS6-24003', 'standard', PartsOrder::IN_PROGRESS, 2, [['AS6-3310', 'Apron cylinder seal kit', 1]]],
+            ['PE-2310', 'AR2-24001', 'rush', PartsOrder::SUBMITTED, 0, [['R2-SHANK-9', 'Ripper shank', 1], ['R2-TIP-2', 'Ripper tip', 3]]],
+        ];
+
+        foreach ($orders as $n => [$po, $serial, $method, $status, $ago, $lines]) {
+            $order = new PartsOrder(['po_number' => $po, 'machine_serial' => $serial, 'ship_method' => $method, 'ship_to' => $shipTo]);
+            $order->forceFill([
+                'dealer_link_id' => $link->id, 'number' => PartsOrder::FIRST_NUMBER + $n, 'status' => $status, 'submitted_by' => $dealer->id,
+                'handled_by' => $status === PartsOrder::SUBMITTED ? null : $parts->id,
+                'started_at' => $status === PartsOrder::SUBMITTED ? null : now()->subDays(max(0, $ago - 1)),
+                'shipped_at' => $status === PartsOrder::SHIPPED ? now()->subDays($ago - 2) : null,
+                'carrier' => $status === PartsOrder::SHIPPED ? 'Purolator' : null,
+                'tracking_number' => $status === PartsOrder::SHIPPED ? '329018827' : null,
+                'created_at' => now()->subDays($ago),
+            ])->save();
+            foreach ($lines as $i => [$part, $description, $qty]) {
+                $order->lines()->create(['position' => $i, 'part_number' => $part, 'description' => $description, 'quantity' => $qty]);
+            }
+        }
     }
 
     /**

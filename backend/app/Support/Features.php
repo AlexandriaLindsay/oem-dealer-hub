@@ -100,6 +100,19 @@ final class Features
             'label' => 'Write quotes',
             'roles' => ['dealer_admin', 'dealer_user'],
         ],
+        // Dealers see their own orders (PartsOrder's dealer scope); the parts desk sees all.
+        'parts_orders' => [
+            'label' => 'Parts orders',
+            'roles' => ['owner', 'admin', 'inside_sales', 'parts', 'dealer_admin', 'dealer_user'],
+        ],
+        'order_parts' => [
+            'label' => 'Order parts',
+            'roles' => ['dealer_admin', 'dealer_user'],
+        ],
+        'manage_parts_orders' => [
+            'label' => 'Work the parts order queue',
+            'roles' => ['owner', 'admin', 'parts'],
+        ],
         'dealers' => [
             'label' => 'Dealer network',
             'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],

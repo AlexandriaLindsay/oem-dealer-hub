@@ -8,6 +8,7 @@ use App\Models\EndUser;
 use App\Models\Machine;
 use App\Models\MachineImport;
 use App\Models\Manufacturer;
+use App\Models\PartsOrder;
 use App\Models\PriceList;
 use App\Models\PriceListItem;
 use App\Models\ProductLine;
@@ -451,6 +452,37 @@ class TenantIsolationTest extends TestCase
         $this->actingAs($acmeUser)->postJson('/api/m/acme/quotes', [
             'customer' => ['contact_name' => 'X'], 'lines' => [['kind' => 'model', 'item_id' => $boltModel->id, 'quantity' => 1, 'unit_price' => '1']],
         ])->assertUnprocessable()->assertJsonValidationErrors('lines.0.item_id');
+    }
+
+    // ---- Parts orders ----
+
+    public function test_parts_orders_stay_with_their_dealer_and_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $prairie = $this->dealer('Prairie Equipment', $acme);
+        $rival = $this->dealer('Rival Equipment', $acme);
+        $boltDealer = $this->dealer('Bolt Dealer', $bolt);
+        $body = ['ship_method' => 'pickup', 'po_number' => 'SECRET-PO', 'lines' => [['part_number' => 'SECRET-PART', 'quantity' => 1]]];
+        $rivalOrder = $this->actingAs($this->dealerUser($rival))->postJson('/api/m/acme/parts-orders', $body)->json('id');
+        $boltOrder = $this->actingAs($this->dealerUser($boltDealer))->postJson('/api/m/bolt/parts-orders', $body)->json('id');
+        $user = $this->dealerUser($prairie);
+
+        // Another dealer's order: not listed, not found by id or search, can't be cancelled.
+        $this->actingAs($user)->getJson('/api/m/acme/parts-orders')->assertJsonPath('total', 0);
+        $this->actingAs($user)->getJson('/api/m/acme/parts-orders?q=SECRET')->assertJsonPath('total', 0);
+        $this->actingAs($user)->getJson("/api/m/acme/parts-orders/{$rivalOrder}")->assertNotFound();
+        $this->actingAs($user)->postJson("/api/m/acme/parts-orders/{$rivalOrder}/cancel")->assertNotFound();
+        // Another manufacturer's: Acme's parts desk can't see or move it.
+        $desk = $this->staff($acme, 'parts');
+        $this->actingAs($desk)->getJson('/api/m/acme/parts-orders')->assertJsonPath('total', 1);
+        $this->actingAs($desk)->getJson("/api/m/acme/parts-orders/{$boltOrder}")->assertNotFound();
+        $this->actingAs($desk)->postJson("/api/m/acme/parts-orders/{$boltOrder}/status", ['status' => 'shipped'])->assertNotFound();
+
+        $this->assertSame('submitted', PartsOrder::withoutTenant()->find($rivalOrder)->status);
+        $this->assertSame('submitted', PartsOrder::withoutTenant()->find($boltOrder)->status);
+        // Each manufacturer numbers its own orders.
+        $this->assertSame(1001, PartsOrder::withoutTenant()->find($boltOrder)->number);
     }
 
     // ---- Billing ----

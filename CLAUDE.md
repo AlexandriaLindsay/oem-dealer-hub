@@ -62,7 +62,9 @@ Phase 3 (commercial) has started. The owner chose it over Azure (no Azure work f
 - **Quotes:** `Quote` (dealer-scoped, numbered per dealer link from 1001, status moves in `Quote::MOVES`) and `QuoteLine` (`list_price_cents` copied in, `unit_price_cents` quoted). `QuoteController::priceLines` prices everything server-side from the dealer's list; only a price the dealer typed is taken from the browser. Only dealers write quotes (`build_quotes`); owner, admin and sales staff read them. The price list is treated as **list prices** (what a dealer quotes from), not dealer cost. Revisit if the owner says lists are cost.
 - `withoutTenant()` lifts the manufacturer **and** dealer scopes (platform tools and tests).
 - A stored file that's gone missing returns a 404 with a log warning (`Uploads::abortIfMissing`), not a 500.
-- **Next in Phase 3:** parts orders.
+- **Parts orders:** `PartsOrder` (dealer-scoped, numbered per manufacturer from 1001, `PartsOrder::MOVES`) and `PartsOrderLine` (part number in upper case, quantity, no prices). Dealers order (`order_parts`); the parts desk is owner, admin and parts (`manage_parts_orders`); inside sales can read. A dealer can cancel only while the order is `submitted`.
+- **Preview runs** set `DEALERDOCK_DOCUMENTS_ROOT` to the scratchpad. Never delete anything under `backend/storage`.
+- **Next in Phase 3:** the Pro features marked "coming soon" (territories, broadcasts, usage analytics, own subdomain and colours). When each ships, remove its `'coming' => true` in `Features::LIST`.
 
 The other option is the Phase 0 leftovers above. The Azure Blob driver for documents and a ClamAV server belong with the Azure deploy.
 

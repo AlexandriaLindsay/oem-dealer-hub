@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Tenant\DocumentController;
 use App\Http\Controllers\Api\Tenant\FleetController;
 use App\Http\Controllers\Api\Tenant\MachineController;
 use App\Http\Controllers\Api\Tenant\MachineImportController;
+use App\Http\Controllers\Api\Tenant\PartsOrderController;
 use App\Http\Controllers\Api\Tenant\PriceListController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
@@ -108,6 +109,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/quotes/{quote}/status', [QuoteController::class, 'status'])->middleware('feature:build_quotes');
             Route::post('/quotes/{quote}/copy', [QuoteController::class, 'copy'])->middleware('feature:build_quotes');
             Route::delete('/quotes/{quote}', [QuoteController::class, 'destroy'])->whereNumber('quote')->middleware('feature:build_quotes');
+
+            Route::get('/parts-orders', [PartsOrderController::class, 'index'])->middleware('feature:parts_orders');
+            Route::get('/parts-orders/defaults', [PartsOrderController::class, 'defaults'])->middleware('feature:order_parts');
+            Route::post('/parts-orders', [PartsOrderController::class, 'store'])->middleware('feature:order_parts');
+            Route::get('/parts-orders/{order}', [PartsOrderController::class, 'show'])->whereNumber('order')->middleware('feature:parts_orders');
+            Route::post('/parts-orders/{order}/status', [PartsOrderController::class, 'update'])->middleware('feature:manage_parts_orders');
+            Route::post('/parts-orders/{order}/cancel', [PartsOrderController::class, 'cancel'])->middleware('feature:order_parts');
 
             Route::get('/catalog', CatalogController::class)->middleware('feature:catalog');
             Route::get('/price-lists', [PriceListController::class, 'index'])->middleware('feature:manage_pricing');

@@ -400,3 +400,41 @@ export interface QuotePage {
   page: number
   last_page: number
 }
+
+export type PartsOrderStatus = 'submitted' | 'in_progress' | 'shipped' | 'cancelled'
+
+export interface PartsOrderRow {
+  id: number
+  number: string
+  status: PartsOrderStatus
+  po_number: string | null
+  machine_serial: string | null
+  ship_method: 'standard' | 'rush' | 'pickup'
+  lines_count: number
+  dealer: string
+  submitted_by: string | null
+  created_at: string | null
+  shipped_at: string | null
+}
+
+export interface PartsOrderDetail extends PartsOrderRow {
+  ship_to: Record<string, string> | null
+  notes: string | null
+  parts_note: string | null
+  carrier: string | null
+  tracking_number: string | null
+  handled_by: string | null
+  started_at: string | null
+  cancelled_at: string | null
+  lines: { part_number: string; description: string | null; quantity: number }[]
+  /** Where the parts desk can move it next (empty for everyone else). */
+  next: PartsOrderStatus[]
+  can_cancel: boolean
+}
+
+export interface PartsOrderPage {
+  data: PartsOrderRow[]
+  total: number
+  page: number
+  last_page: number
+}
