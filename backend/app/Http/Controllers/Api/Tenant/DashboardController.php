@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\DealerLink;
+use App\Models\Machine;
 use App\Models\ProductLine;
 use App\Support\Plan;
 use App\Tenancy\Tenant;
@@ -20,6 +21,7 @@ class DashboardController extends Controller
             return response()->json([
                 'acting_as' => 'dealer',
                 'product_lines' => ProductLine::count(),
+                'machines' => self::machinesByStatus(),
             ]);
         }
 
@@ -41,6 +43,20 @@ class DashboardController extends Controller
                 'limit' => Plan::limit($manufacturer, $key),
             ]),
             'product_lines' => ProductLine::count(),
+            'machines' => self::machinesByStatus(),
         ]);
+    }
+
+    /**
+     * Every status with its count, zeros included, in Machine::STATUSES order.
+     * For a dealer it's only their own machines (Machine's dealer scope).
+     *
+     * @return array<string, int>
+     */
+    private static function machinesByStatus(): array
+    {
+        $counts = Machine::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+
+        return collect(Machine::STATUSES)->mapWithKeys(fn ($s) => [$s => (int) ($counts[$s] ?? 0)])->all();
     }
 }

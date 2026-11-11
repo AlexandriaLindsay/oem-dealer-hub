@@ -34,4 +34,6 @@ DealerDock is a self-serve dealer platform and dealer network for equipment manu
 
 ## Status (2026-11-11)
 
-Phase 0 is done and pushed, with the first CI run green. Next options: email/text two-factor codes and trusted browsers, a Filament console for DealerDock staff, Azure deploy (slots + OIDC), or Phase 1 (machines, fleet report, registrations, manuals, CSV import).
+Phase 0 is done and pushed, with the first CI run green. Still open from Phase 0: email/text two-factor codes and trusted browsers, a Filament console for DealerDock staff, Azure deploy (slots + OIDC).
+
+Phase 1 has started. Its first slice: product models and options, machines with statuses and dealers, and `machine_events` history. The table is `product_models` (class `ProductModel`), not `models`, so it doesn't clash with Eloquent's `Model`. `Machine` has a dealer scope, so a dealer only sees their own machines. Next in Phase 1: fleet report and Excel export, registrations, manuals, CSV import, onboarding tour.

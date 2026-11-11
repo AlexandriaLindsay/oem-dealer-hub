@@ -125,6 +125,44 @@ tbody tr:last-child td { border-bottom: 0; }
 .badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize; }
 .badge-active { background: var(--ok-soft); color: var(--ok); }
 .badge-suspended { background: var(--accent-soft); color: var(--muted); }
+/* Machine statuses: still to sell (neutral), out working (accent), done (green). */
+.badge-inventory, .badge-used { background: var(--border); color: var(--text); }
+.badge-demo, .badge-rental { background: var(--accent-soft); color: var(--accent); }
+.badge-sold { background: var(--ok-soft); color: var(--ok); }
+h1 .badge { vertical-align: middle; margin-left: 0.4rem; font-size: 0.85rem; }
+
+/* ---- Products, machines ---- */
+.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.9rem; font-weight: 600; }
+.section-title { margin-top: 2rem; }
+.section-head { margin-top: 2rem; }
+.section-head h2 { margin: 0; }
+.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0 0 0.5rem; }
+.chips li { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.8rem; }
+.chips-small { gap: 0.3rem; margin-bottom: 0.25rem; }
+.chips-small li { font-size: 0.85rem; padding: 0.05rem 0.55rem; }
+td.wrap { white-space: normal; min-width: 220px; }
+td .inline-form { margin: 0.4rem 0 0; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1rem; }
+.filter-search { display: flex; gap: 0.5rem; flex: 1 1 260px; }
+.filter-search input { flex: 1; }
+.pager { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap; }
+
+.tile-link { color: inherit; text-decoration: none; }
+.tile-link:hover { border-color: var(--accent); }
+
+.back { display: inline-block; margin-bottom: 0.75rem; text-decoration: none; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin: 0 0 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; }
+.facts dt { color: var(--muted); font-size: 0.85rem; }
+.facts dd { margin: 0.15rem 0 0; font-weight: 600; }
+.two-up { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.two-up .panel { margin-bottom: 0.5rem; }
+.two-up select, .two-up input { width: 100%; }
+.history { list-style: none; padding: 0; margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.history li { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+.history li:last-child { border-bottom: 0; }
+.history-summary { font-weight: 600; }
+.history-note { font-style: italic; }
 
 /* ---- Phone width ---- */
 @media (max-width: 720px) {

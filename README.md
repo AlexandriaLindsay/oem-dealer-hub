@@ -78,3 +78,16 @@ Phase 0 (foundation) - see [docs/PLAN.md](docs/PLAN.md) section 7.
 - [ ] Email and text 2FA codes, trusted browsers
 - [ ] Filament console for DealerDock staff
 - [ ] Azure: deployment slots, OIDC deploys, MySQL, Blob storage
+
+Phase 1 (MVP), in progress:
+
+- [x] Products: models within product lines, and options per model
+- [x] Machines by serial number, with statuses (inventory, demo, rental, sold, used), a dealer (or still at the factory) and a history of every change
+- [x] Staff add machines and move them between dealers; dealers see only their own machines and keep their status current
+- [ ] Fleet report: charts and Excel export across all dealers
+- [ ] Product registration (sale and rental) with a review queue
+- [ ] Manuals library, searchable by serial number
+- [ ] CSV import of existing machines, with an audit report
+- [ ] Onboarding tour
+
+**A dealer only ever sees their own machines.** `Machine` has a second global scope on top of the manufacturer one: when the request is acting as a dealer, it only returns that dealer's machines. A controller that forgets a filter still can't show one dealer another dealer's stock. A dealer also sees other dealers in a machine's history only as "another dealer".

@@ -3,7 +3,9 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
+use App\Http\Controllers\Api\Tenant\MachineController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
+use App\Http\Controllers\Api\Tenant\ProductModelController;
 use App\Http\Controllers\Api\Tenant\StaffController;
 use App\Http\Controllers\Api\TwoFactorController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +34,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/product-lines', [ProductLineController::class, 'index'])->middleware('feature:products');
         Route::post('/product-lines', [ProductLineController::class, 'store'])->middleware('feature:manage_products');
+
+        Route::get('/product-models', [ProductModelController::class, 'index'])->middleware('feature:products');
+        Route::post('/product-models', [ProductModelController::class, 'store'])->middleware('feature:manage_products');
+        Route::post('/product-models/{model}/options', [ProductModelController::class, 'storeOption'])->middleware('feature:manage_products');
+
+        Route::get('/machines', [MachineController::class, 'index'])->middleware('feature:machines');
+        Route::post('/machines', [MachineController::class, 'store'])->middleware('feature:manage_machines');
+        Route::get('/machines/{machine}', [MachineController::class, 'show'])->middleware('feature:machines');
+        Route::post('/machines/{machine}/status', [MachineController::class, 'updateStatus'])->middleware('feature:machine_status');
+        Route::post('/machines/{machine}/transfer', [MachineController::class, 'transfer'])->middleware('feature:manage_machines');
 
         Route::get('/dealers', [DealerController::class, 'index'])->middleware('feature:dealers');
         Route::post('/dealers', [DealerController::class, 'store'])->middleware('feature:manage_dealers');

@@ -3,7 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-
 import { AuthProvider, needsTwoFactorSetup, useAuth } from './lib/auth'
 import { Layout } from './components/Layout'
 import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage, TwoFactorSetupPage } from './pages/AuthPages'
-import { DashboardPage, DealersPage, ProductLinesPage, StaffPage } from './pages/TenantPages'
+import { DashboardPage, DealersPage, ProductsPage, StaffPage } from './pages/TenantPages'
+import { MachinePage, MachinesPage } from './pages/MachinePages'
 
 /** Signed out -> sign in; no two-factor yet -> set it up; otherwise the page. */
 function RequireAuth({ children, allowWithoutTwoFactor = false }: { children: ReactNode; allowWithoutTwoFactor?: boolean }) {
@@ -71,7 +72,9 @@ export default function App() {
             }
           >
             <Route index element={<DashboardPage />} />
-            <Route path="products" element={<ProductLinesPage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="machines" element={<MachinesPage />} />
+            <Route path="machines/:id" element={<MachinePage />} />
             <Route path="dealers" element={<DealersPage />} />
             <Route path="staff" element={<StaffPage />} />
           </Route>

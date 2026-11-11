@@ -35,6 +35,20 @@ final class Features
             'label' => 'Edit product lines and models',
             'roles' => ['owner', 'admin'],
         ],
+        // Staff see every machine; a dealer sees only their own (Machine's dealer scope).
+        'machines' => [
+            'label' => 'Machines and inventory',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'warranty', 'finance', 'parts', 'dealer_admin', 'dealer_user'],
+        ],
+        'manage_machines' => [
+            'label' => 'Add machines and move them between dealers',
+            'roles' => ['owner', 'admin', 'inside_sales'],
+        ],
+        // Dealers keep their own stock's status current (demo, rental, sold...).
+        'machine_status' => [
+            'label' => 'Change a machine\'s status',
+            'roles' => ['owner', 'admin', 'inside_sales', 'dealer_admin', 'dealer_user'],
+        ],
         'dealers' => [
             'label' => 'Dealer network',
             'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],

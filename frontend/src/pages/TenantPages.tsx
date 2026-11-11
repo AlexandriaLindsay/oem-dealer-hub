@@ -1,17 +1,10 @@
-import { useState, type FormEvent } from 'react'
-import { useParams } from 'react-router-dom'
-import { api, ApiError } from '../lib/api'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { MACHINE_STATUSES, type DealerRow, type ProductModelRow } from '../lib/api'
 import { useApi } from '../lib/useApi'
+import { useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
-import { Field, FormError, formValues } from '../components/Form'
-
-function useSlug(): string {
-  return useParams().slug!
-}
-
-function Loading({ error }: { error: ApiError | null }) {
-  return error ? <p className="form-error">{error.message}</p> : <p className="muted">Loading…</p>
-}
+import { AddForm, Loading } from '../components/AddForm'
 
 // ---- Dashboard ----
 
@@ -20,9 +13,30 @@ interface Dashboard {
   plan?: { key: string; label: string; trial_ends_at: string | null }
   usage?: Record<string, { used: number; limit: number | null }>
   product_lines: number
+  machines: Record<string, number>
 }
 
 const USAGE_LABELS: Record<string, string> = { dealers: 'Dealers', staff: 'Staff users' }
+
+/** One tile per machine status, each linking to the list filtered to it. */
+function MachineTiles({ counts }: { counts: Record<string, number> }) {
+  const current = useCurrentManufacturer()
+  if (!current?.features.includes('machines')) return null
+
+  return (
+    <>
+      <h2 className="section-title">Machines</h2>
+      <div className="tiles">
+        {MACHINE_STATUSES.map((s) => (
+          <Link className="tile tile-link" key={s} to={`machines?status=${s}`}>
+            <span className="tile-label">{s.charAt(0).toUpperCase() + s.slice(1)}</span>
+            <span className="tile-value">{counts[s] ?? 0}</span>
+          </Link>
+        ))}
+      </div>
+    </>
+  )
+}
 
 export function DashboardPage() {
   const slug = useSlug()
@@ -36,12 +50,7 @@ export function DashboardPage() {
       <>
         <h1>{current?.name}</h1>
         <p className="lede">You're signed in as {current?.dealer?.name}, a dealer for {current?.name}.</p>
-        <div className="tiles">
-          <div className="tile">
-            <span className="tile-label">Product lines</span>
-            <span className="tile-value">{data.product_lines}</span>
-          </div>
-        </div>
+        <MachineTiles counts={data.machines} />
       </>
     )
   }
@@ -74,48 +83,140 @@ export function DashboardPage() {
           <span className="tile-value">{data.product_lines}</span>
         </div>
       </div>
+      <MachineTiles counts={data.machines} />
     </>
   )
 }
 
-// ---- Product lines ----
+// ---- Products: lines, models and options ----
 
-export function ProductLinesPage() {
+export function ProductsPage() {
   const slug = useSlug()
   const current = useCurrentManufacturer()
-  const { data, error, reload } = useApi<{ id: number; name: string }[]>(`/m/${slug}/product-lines`)
-  const canEdit = current?.features.includes('manage_products')
+  const lines = useApi<{ id: number; name: string }[]>(`/m/${slug}/product-lines`)
+  const models = useApi<ProductModelRow[]>(`/m/${slug}/product-models`)
+  const canEdit = !!current?.features.includes('manage_products')
+  const [addingModel, setAddingModel] = useState(false)
 
   return (
     <>
-      <h1>Product lines</h1>
-      {canEdit && <AddForm path={`/m/${slug}/product-lines`} fields={[{ name: 'name', label: 'New product line' }]} button="Add" onAdded={reload} inline />}
-      {!data ? (
-        <Loading error={error} />
-      ) : data.length === 0 ? (
-        <p className="muted">No product lines yet.</p>
+      <h1>Products</h1>
+
+      <h2 className="section-title">Product lines</h2>
+      {canEdit && <AddForm path={`/m/${slug}/product-lines`} fields={[{ name: 'name', label: 'New product line' }]} button="Add" onAdded={lines.reload} inline />}
+      {!lines.data ? (
+        <Loading error={lines.error} />
+      ) : lines.data.length === 0 ? (
+        <p className="muted">No product lines yet. Add one, then the models in it.</p>
       ) : (
-        <ul className="list">
-          {data.map((l) => (
+        <ul className="chips">
+          {lines.data.map((l) => (
             <li key={l.id}>{l.name}</li>
           ))}
         </ul>
+      )}
+
+      <div className="page-head section-head">
+        <h2>Models</h2>
+        {canEdit && !addingModel && !!lines.data?.length && (
+          <button className="primary" onClick={() => setAddingModel(true)}>
+            Add model
+          </button>
+        )}
+      </div>
+
+      {addingModel && lines.data && (
+        <section className="panel">
+          <h2>Add a model</h2>
+          <AddForm
+            path={`/m/${slug}/product-models`}
+            fields={[
+              { name: 'product_line_id', label: 'Product line', options: lines.data.map((l) => ({ value: String(l.id), label: l.name })) },
+              { name: 'name', label: 'Model name', required: true },
+              { name: 'category', label: 'Category', hint: 'Optional - e.g. "Pull-type scraper".' },
+            ]}
+            button="Add model"
+            onAdded={() => {
+              setAddingModel(false)
+              models.reload()
+            }}
+            onCancel={() => setAddingModel(false)}
+          />
+        </section>
+      )}
+
+      {!models.data ? (
+        <Loading error={models.error} />
+      ) : models.data.length === 0 ? (
+        <p className="muted">No models yet.</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Line</th>
+                <th>Category</th>
+                <th>Options</th>
+                <th>Machines</th>
+              </tr>
+            </thead>
+            <tbody>
+              {models.data.map((m) => (
+                <tr key={m.id}>
+                  <td>{m.name}</td>
+                  <td>{m.product_line.name}</td>
+                  <td>{m.category ?? '—'}</td>
+                  <td className="wrap">
+                    <OptionsCell slug={slug} model={m} canEdit={canEdit} onAdded={models.reload} />
+                  </td>
+                  <td>{current?.features.includes('machines') ? <Link to={`../machines?model=${m.id}`} relative="path">{m.machines}</Link> : m.machines}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   )
 }
 
-// ---- Dealers ----
+function OptionsCell({ slug, model, canEdit, onAdded }: { slug: string; model: ProductModelRow; canEdit: boolean; onAdded: () => void }) {
+  const [adding, setAdding] = useState(false)
 
-interface DealerRow {
-  id: number
-  name: string
-  dealer_code: string | null
-  status: string
-  city: string | null
-  region: string | null
-  country: string | null
+  return (
+    <>
+      {model.options.length === 0 && !adding && <span className="muted">None</span>}
+      {model.options.length > 0 && (
+        <ul className="chips chips-small">
+          {model.options.map((o) => (
+            <li key={o.id}>{o.name}</li>
+          ))}
+        </ul>
+      )}
+      {canEdit &&
+        (adding ? (
+          <AddForm
+            path={`/m/${slug}/product-models/${model.id}/options`}
+            fields={[{ name: 'name', label: `New option for ${model.name}` }]}
+            button="Add"
+            inline
+            onAdded={() => {
+              setAdding(false)
+              onAdded()
+            }}
+            onCancel={() => setAdding(false)}
+          />
+        ) : (
+          <button className="link" onClick={() => setAdding(true)}>
+            Add option
+          </button>
+        ))}
+    </>
+  )
 }
+
+// ---- Dealers ----
 
 export function DealersPage() {
   const slug = useSlug()
@@ -170,6 +271,7 @@ export function DealersPage() {
                 <th>Code</th>
                 <th>Location</th>
                 <th>Status</th>
+                {current?.features.includes('machines') && <th>Machines</th>}
               </tr>
             </thead>
             <tbody>
@@ -181,6 +283,13 @@ export function DealersPage() {
                   <td>
                     <span className={`badge badge-${d.status}`}>{d.status}</span>
                   </td>
+                  {current?.features.includes('machines') && (
+                    <td>
+                      <Link to={`../machines?dealer=${d.id}`} relative="path">
+                        View
+                      </Link>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -227,7 +336,7 @@ export function StaffPage() {
             fields={[
               { name: 'name', label: 'Name', required: true },
               { name: 'email', label: 'Email', type: 'email', required: true },
-              { name: 'role', label: 'Role', options: ROLES },
+              { name: 'role', label: 'Role', options: ROLES.map((r) => ({ value: r, label: r.replace('_', ' ') })) },
             ]}
             button="Send invite"
             onAdded={() => {
@@ -266,77 +375,5 @@ export function StaffPage() {
         </div>
       )}
     </>
-  )
-}
-
-// ---- A small add form used by the pages above ----
-
-interface AddField {
-  name: string
-  label: string
-  type?: string
-  required?: boolean
-  hint?: string
-  options?: string[]
-}
-
-function AddForm(props: {
-  path: string
-  fields: AddField[]
-  button: string
-  onAdded: () => void
-  onCancel?: () => void
-  inline?: boolean
-}) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<ApiError | null>(null)
-
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const values = Object.fromEntries(Object.entries(formValues(form)).filter(([, v]) => v !== ''))
-    setBusy(true)
-    setError(null)
-    try {
-      await api.post(props.path, values)
-      form.reset()
-      props.onAdded()
-    } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError(0, { message: 'Could not reach DealerDock.' }))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form onSubmit={onSubmit} noValidate className={props.inline ? 'inline-form' : 'grid-form'}>
-      {props.fields.map((f) =>
-        f.options ? (
-          <div className="field" key={f.name}>
-            <label htmlFor={`field-${f.name}`}>{f.label}</label>
-            <select id={`field-${f.name}`} name={f.name}>
-              {f.options.map((o) => (
-                <option key={o} value={o}>
-                  {o.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <Field key={f.name} label={f.label} name={f.name} type={f.type ?? 'text'} required={f.required} hint={f.hint} error={error} />
-        ),
-      )}
-      <div className="form-actions">
-        <FormError error={error} />
-        <button className="primary" disabled={busy}>
-          {busy ? 'Saving…' : props.button}
-        </button>
-        {props.onCancel && (
-          <button type="button" className="link" onClick={props.onCancel}>
-            Cancel
-          </button>
-        )}
-      </div>
-    </form>
   )
 }

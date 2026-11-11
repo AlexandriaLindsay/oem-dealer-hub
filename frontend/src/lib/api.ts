@@ -91,3 +91,52 @@ export interface Me {
   }
   manufacturers: ManufacturerAccess[]
 }
+
+/** In order of a machine's usual life at a dealer (App\Models\Machine::STATUSES). */
+export const MACHINE_STATUSES = ['inventory', 'demo', 'rental', 'sold', 'used'] as const
+export type MachineStatus = (typeof MACHINE_STATUSES)[number]
+
+export interface ProductModelRow {
+  id: number
+  name: string
+  category: string | null
+  product_line: { id: number; name: string }
+  options: { id: number; name: string }[]
+  machines: number
+}
+
+export interface MachineRow {
+  id: number
+  serial_no: string
+  production_no: string | null
+  status: MachineStatus
+  model: { id: number; name: string }
+  product_line: string
+  /** The dealer link it's with; null while it's still at the manufacturer. */
+  dealer: { id: number; name: string } | null
+  built_at: string | null
+  shipped_at: string | null
+  updated_at: string | null
+}
+
+export interface MachineDetail extends MachineRow {
+  history: { id: number; type: string; summary: string; note: string | null; by: string | null; at: string | null }[]
+}
+
+export interface MachinePage {
+  data: MachineRow[]
+  total: number
+  page: number
+  last_page: number
+}
+
+export interface DealerRow {
+  id: number
+  dealer_id: number
+  name: string
+  dealer_code: string | null
+  status: string
+  city: string | null
+  region: string | null
+  country: string | null
+}

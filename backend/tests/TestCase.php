@@ -4,8 +4,11 @@ namespace Tests;
 
 use App\Models\Dealer;
 use App\Models\DealerLink;
+use App\Models\Machine;
 use App\Models\Manufacturer;
 use App\Models\Membership;
+use App\Models\ProductLine;
+use App\Models\ProductModel;
 use App\Models\User;
 use App\Support\Plan;
 use App\Tenancy\Tenant;
@@ -51,6 +54,35 @@ abstract class TestCase extends BaseTestCase
         Membership::create(['user_id' => $user->id, 'org_type' => Membership::DEALER, 'org_id' => $dealer->id, 'role' => $role]);
 
         return $user;
+    }
+
+    /** $dealer's link with $manufacturer. */
+    protected function link(Dealer $dealer, Manufacturer $manufacturer): DealerLink
+    {
+        return Tenant::run($manufacturer, fn () => DealerLink::where('dealer_id', $dealer->id)->firstOrFail());
+    }
+
+    /** A model at $manufacturer, in a product line of the same name (made if needed). */
+    protected function productModel(Manufacturer $manufacturer, string $name = 'S-400'): ProductModel
+    {
+        return Tenant::run($manufacturer, function () use ($name) {
+            $line = ProductLine::firstOrCreate(['name' => 'Line for '.$name]);
+
+            return ProductModel::create(['product_line_id' => $line->id, 'name' => $name]);
+        });
+    }
+
+    /** A machine at $manufacturer, with $link's dealer (or still at the manufacturer). */
+    protected function machine(Manufacturer $manufacturer, string $serial, ?DealerLink $link = null, string $status = 'inventory'): Machine
+    {
+        $model = Tenant::run($manufacturer, fn () => ProductModel::first()) ?? $this->productModel($manufacturer);
+
+        return Tenant::run($manufacturer, function () use ($model, $serial, $link, $status) {
+            $machine = Machine::add(['product_model_id' => $model->id, 'serial_no' => $serial], $link, null);
+            $machine->changeStatus($status, null);
+
+            return $machine;
+        });
     }
 
     protected function userWithTwoFactor(): User

@@ -5,7 +5,8 @@ import { useAuth } from '../lib/auth'
 /** The nav, each item shown only to people with its feature. */
 const NAV: { to: string; label: string; feature: string }[] = [
   { to: '', label: 'Dashboard', feature: 'dashboard' },
-  { to: 'products', label: 'Product lines', feature: 'products' },
+  { to: 'machines', label: 'Machines', feature: 'machines' },
+  { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },
   { to: 'staff', label: 'Staff', feature: 'manage_staff' },
 ]
@@ -60,7 +61,8 @@ export function Layout() {
 
       <nav className="sidenav" aria-label="Main">
         {NAV.filter((item) => current.features.includes(item.feature)).map((item) => (
-          <NavLink key={item.to} to={item.to} end>
+          // Machines stays highlighted on a machine's own page; the dashboard only on itself.
+          <NavLink key={item.to} to={item.to} end={item.to === ''}>
             {item.label}
           </NavLink>
         ))}
