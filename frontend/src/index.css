@@ -12,6 +12,7 @@
   --danger: #b42318;
   --ok: #067647;
   --ok-soft: #e6f4ec;
+  --danger-soft: #fdecea;
   --radius: 8px;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
   /*
@@ -46,6 +47,7 @@
     --danger: #ff8a7a;
     --ok: #6fdc9f;
     --ok-soft: #12291d;
+    --danger-soft: #3a1714;
     --shadow: none;
     --status-inventory: #3987e5;
     --status-demo: #d95926;
@@ -177,6 +179,40 @@ td .inline-form { margin: 0.4rem 0 0; }
 .history li:last-child { border-bottom: 0; }
 .history-summary { font-weight: 600; }
 .history-note { font-style: italic; }
+
+/* ---- Registrations ---- */
+textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.7rem; width: 100%; resize: vertical; }
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea[aria-invalid='true'] { border-color: var(--danger); }
+input[type='file'] { padding: 0.4rem; }
+.danger { background: var(--danger); color: #fff; border: 0; border-radius: var(--radius); padding: 0.6rem 1.1rem; font-weight: 600; }
+.form-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.span-all { grid-column: 1 / -1; }
+.grid-form h3 { font-size: 1rem; margin: 0.5rem 0 0.75rem; }
+.choice { border: 0; padding: 0; margin: 0 0 1rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.choice legend { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.4rem; padding: 0; }
+.choice .check { margin: 0; }
+.prewrap { white-space: pre-wrap; margin: 0; }
+
+.badge-reg-pending { background: var(--accent-soft); color: var(--accent); text-transform: none; }
+.badge-reg-approved { background: var(--ok-soft); color: var(--ok); text-transform: none; }
+.badge-reg-rejected { background: var(--danger-soft); color: var(--danger); text-transform: none; }
+
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; overflow-x: auto; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0.5rem 0.8rem; color: var(--muted); white-space: nowrap; margin-bottom: -1px; }
+.tabs button.is-on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+.callout { border-radius: 12px; padding: 0.9rem 1.1rem; margin-bottom: 1.25rem; border: 1px solid var(--border); }
+.callout p { margin: 0.35rem 0 0; }
+.callout-danger { background: var(--danger-soft); border-color: transparent; }
+.callout-danger strong { color: var(--danger); }
+.callout-ok { background: var(--ok-soft); border-color: transparent; }
+.callout-ok strong { color: var(--ok); }
+
+.docs { list-style: none; padding: 0; margin: 0; }
+.docs li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.docs li:last-child { border-bottom: 0; }
+.list-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
 
 /* ---- Fleet report ---- */
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; vertical-align: baseline; }

@@ -10,10 +10,14 @@ use App\Models\Membership;
 use App\Models\ProductLine;
 use App\Models\ProductModel;
 use App\Models\ProductOption;
+use App\Models\Registration;
 use App\Models\User;
 use App\Support\Plan;
+use App\Support\Scanning\ScanResult;
+use App\Support\Uploads;
 use App\Tenancy\Tenant;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 /**
  * Local demo data - two manufacturers and a dealer that carries both.
@@ -93,6 +97,8 @@ class DatabaseSeeder extends Seeder
             // Went to Northern first, then moved to Prairie.
             $moved = Machine::add(['product_model_id' => $s600->id, 'serial_no' => 'AS6-24003', 'production_no' => 'PO-5200'], $acmeNorthern, $owner);
             $moved->transferTo($acmePrairie, $owner, 'Prairie had a buyer lined up.');
+
+            $this->registrations($owner, $moved);
         });
 
         Tenant::run($bolt, function () use ($boltPrairie) {
@@ -100,6 +106,40 @@ class DatabaseSeeder extends Seeder
             $model = ProductModel::create(['product_line_id' => $line->id, 'name' => 'B-72 Bucket']);
             Machine::add(['product_model_id' => $model->id, 'serial_no' => 'BB72-0001'], $boltPrairie, null);
         });
+    }
+
+    /**
+     * Registrations at Acme: an older sale already approved, and the machine
+     * Prairie had a buyer for, waiting in the review queue with its bill of
+     * sale. Runs inside Tenant::run(Acme).
+     */
+    private function registrations(User $owner, Machine $waiting): void
+    {
+        $dealer = User::where('email', 'dealer@prairie.test')->first();
+        $rental = Machine::where('serial_no', 'AS6-24001')->first();
+
+        // Northern's rental, approved: the machine was already marked rental above.
+        $approved = Registration::create([
+            'machine_id' => $rental->id, 'dealer_link_id' => $rental->dealer_link_id, 'type' => 'rental',
+            'delivered_on' => now()->subWeeks(3), 'submitted_by' => null,
+            'customer' => ['company' => 'Red River Earthworks', 'contact_name' => 'Sam Ortiz', 'email' => 'sam@redriver.example', 'city' => 'Fargo', 'region' => 'ND', 'country' => 'US'],
+        ]);
+        $approved->approve($owner);
+
+        $pending = Registration::create([
+            'machine_id' => $waiting->id, 'dealer_link_id' => $waiting->dealer_link_id, 'type' => 'sale',
+            'delivered_on' => now()->subDays(2), 'submitted_by' => $dealer->id,
+            'customer' => ['company' => 'Hill Farms', 'contact_name' => 'Dana Hill', 'email' => 'dana@hillfarms.example', 'phone' => '204-555-0142', 'city' => 'Brandon', 'region' => 'MB', 'country' => 'CA'],
+            'notes' => 'Delivered with the wide tire option fitted at our shop.',
+        ]);
+        // A tiny real PDF, so the download works in the demo. Seeded, so not scanned.
+        $path = Tenant::current()->id().'/registrations/'.$pending->id.'/'.Str::uuid().'.pdf';
+        $pdf = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 144]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF";
+        Uploads::disk()->put($path, $pdf);
+        $pending->documents()->create([
+            'kind' => 'bill_of_sale', 'original_name' => 'Hill Farms bill of sale.pdf', 'path' => $path, 'mime' => 'application/pdf',
+            'size' => strlen($pdf), 'sha256' => hash('sha256', $pdf), 'scan_status' => ScanResult::NOT_SCANNED, 'uploaded_by' => $dealer->id,
+        ]);
     }
 
     private function member(string $email, string $name, string $orgType, int $orgId, string $role): void

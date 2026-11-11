@@ -36,7 +36,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
 
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // FormData (file uploads) sets its own multipart Content-Type, boundary included.
+  const isForm = body instanceof FormData
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const token = xsrfToken()
   if (token) headers['X-XSRF-TOKEN'] = token
 
@@ -44,7 +46,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     method,
     headers,
     credentials: 'include',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
   })
 
   // A stale CSRF token (419) - get a fresh one and try once more.
@@ -176,4 +178,35 @@ export async function download(path: string, fallbackName: string): Promise<void
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+}
+
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
+
+export interface RegistrationRow {
+  id: number
+  type: 'sale' | 'rental'
+  status: RegistrationStatus
+  delivered_on: string
+  machine: { id: number; serial_no: string; model: string }
+  dealer: string
+  customer: string
+  submitted_by: string | null
+  submitted_at: string | null
+}
+
+export interface RegistrationDetail extends RegistrationRow {
+  product_line: string
+  customer_details: Record<string, string>
+  notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  rejection_reason: string | null
+  documents: { id: number; kind: 'bill_of_sale' | 'pdi' | 'other'; name: string; size: number; scan_status: 'clean' | 'not_scanned' }[]
+}
+
+export interface RegistrationPage {
+  data: RegistrationRow[]
+  total: number
+  page: number
+  last_page: number
 }

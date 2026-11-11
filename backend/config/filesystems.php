@@ -30,6 +30,16 @@ return [
 
     'disks' => [
 
+        // Uploaded documents in local development. Private, and not served by
+        // Laravel - only through the API's access checks (config/dealerdock.php).
+        'documents' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/documents'),
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

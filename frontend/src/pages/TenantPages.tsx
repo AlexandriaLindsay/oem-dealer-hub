@@ -14,9 +14,23 @@ interface Dashboard {
   usage?: Record<string, { used: number; limit: number | null }>
   product_lines: number
   machines: Record<string, number>
+  registrations_pending: number
 }
 
-const USAGE_LABELS: Record<string, string> = { dealers: 'Dealers', staff: 'Staff users' }
+const USAGE_LABELS: Record<string, string> = { dealers: 'Dealers', staff: 'Staff users', storage_gb: 'File storage (GB)' }
+
+/** Registrations waiting for the manufacturer - the reviewer's to-do, the dealer's "still waiting". */
+function PendingTile({ count, dealer }: { count: number; dealer: boolean }) {
+  const current = useCurrentManufacturer()
+  if (!current?.features.includes('registrations')) return null
+
+  return (
+    <Link className="tile tile-link" to="registrations?status=pending">
+      <span className="tile-label">{dealer ? 'Registrations waiting for approval' : 'Registrations to review'}</span>
+      <span className="tile-value">{count}</span>
+    </Link>
+  )
+}
 
 /** One tile per machine status, each linking to the list filtered to it. */
 function MachineTiles({ counts }: { counts: Record<string, number> }) {
@@ -50,6 +64,9 @@ export function DashboardPage() {
       <>
         <h1>{current?.name}</h1>
         <p className="lede">You're signed in as {current?.dealer?.name}, a dealer for {current?.name}.</p>
+        <div className="tiles">
+          <PendingTile count={data.registrations_pending} dealer />
+        </div>
         <MachineTiles counts={data.machines} />
       </>
     )
@@ -82,6 +99,7 @@ export function DashboardPage() {
           <span className="tile-label">Product lines</span>
           <span className="tile-value">{data.product_lines}</span>
         </div>
+        <PendingTile count={data.registrations_pending} dealer={false} />
       </div>
       <MachineTiles counts={data.machines} />
     </>

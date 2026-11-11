@@ -7,6 +7,7 @@ import { useCurrentManufacturer } from '../components/Layout'
 import { AddForm, Loading, type Option } from '../components/AddForm'
 import { Swatch } from '../components/charts'
 import { FormError } from '../components/Form'
+import { MachineRegistrations } from './RegistrationPages'
 
 const STATUS_OPTIONS: Option[] = MACHINE_STATUSES.map((s) => ({ value: s, label: capitalize(s) }))
 
@@ -283,7 +284,9 @@ export function MachinePage() {
         )}
       </div>
 
-      <h2>History</h2>
+      {current?.features.includes('registrations') && <MachineRegistrations machine={data} />}
+
+      <h2 className="section-title">History</h2>
       <ol className="history">
         {data.history.map((e) => (
           <li key={e.id}>

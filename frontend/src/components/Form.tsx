@@ -6,12 +6,14 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   name: string
   error?: ApiError | null
   hint?: ReactNode
+  /** The API's key for this field's errors when it differs from the input name (e.g. customer[email] -> customer.email). */
+  errorKey?: string
 }
 
 /** A labelled input that shows its own validation error from the API. */
-export function Field({ label, name, error, hint, ...input }: FieldProps) {
-  const message = error?.field(name)
-  const id = `field-${name}`
+export function Field({ label, name, error, hint, errorKey, ...input }: FieldProps) {
+  const message = error?.field(errorKey ?? name)
+  const id = `field-${name.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
 
   return (
     <div className="field">

@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 const NAV: { to: string; label: string; feature: string }[] = [
   { to: '', label: 'Dashboard', feature: 'dashboard' },
   { to: 'machines', label: 'Machines', feature: 'machines' },
+  { to: 'registrations', label: 'Registrations', feature: 'registrations' },
   { to: 'fleet', label: 'Fleet report', feature: 'fleet_report' },
   { to: 'products', label: 'Products', feature: 'products' },
   { to: 'dealers', label: 'Dealers', feature: 'dealers' },

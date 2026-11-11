@@ -136,7 +136,7 @@ class MachineController extends Controller
         $tenant = Tenant::current();
         $ownLink = $tenant->dealerLink()?->id;
 
-        $linkIds = $events->where('type', '!=', 'status')->flatMap(fn ($e) => [$e->from, $e->to])->filter()->unique();
+        $linkIds = $events->whereIn('type', ['created', 'transfer'])->flatMap(fn ($e) => [$e->from, $e->to])->filter()->unique();
         $names = DealerLink::with('dealer')->whereIn('id', $linkIds)->get()->mapWithKeys(fn ($l) => [$l->id => $l->dealer->name]);
 
         $place = function (?string $linkId) use ($tenant, $ownLink, $names): string {
@@ -157,6 +157,8 @@ class MachineController extends Controller
                 'created' => 'Added, at '.$place($e->to),
                 'status' => 'Status changed from '.$e->from.' to '.$e->to,
                 'transfer' => 'Moved from '.$place($e->from).' to '.$place($e->to),
+                // No customer name here: a later dealer (a trade-in) reads this history too.
+                'registration' => $e->to === 'sale' ? 'Registered as sold' : 'Registered as a rental',
                 default => $e->type,
             },
             'note' => $e->note,

@@ -3,12 +3,16 @@
 namespace Tests\Feature;
 
 use App\Models\DealerLink;
+use App\Models\EndUser;
 use App\Models\Machine;
+use App\Models\Manufacturer;
 use App\Models\ProductLine;
 use App\Models\ProductOption;
+use App\Models\Registration;
 use App\Tenancy\MissingTenantException;
 use App\Tenancy\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -257,6 +261,106 @@ class TenantIsolationTest extends TestCase
 
         $this->assertStringContainsString('ACME-1', $sheet);
         $this->assertStringNotContainsString('BOLT', $sheet);
+    }
+
+    // ---- Registrations, documents and end users ----
+
+    public function test_staff_cant_read_or_review_another_manufacturers_registrations(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $boltLink = $this->link($this->dealer('Bolt Only Dealer', $bolt), $bolt);
+        [$boltRegistration, $boltDoc] = $this->registrationWithDocument($bolt, $this->machine($bolt, 'BOLT-1', $boltLink));
+        $user = $this->staff($acme);
+
+        $this->actingAs($user)->getJson('/api/m/acme/registrations')->assertOk()->assertJsonPath('total', 0);
+        $this->actingAs($user)->getJson("/api/m/acme/registrations/{$boltRegistration->id}")->assertNotFound();
+        $this->actingAs($user)->get("/api/m/acme/registrations/{$boltRegistration->id}/documents/{$boltDoc->id}")->assertNotFound();
+        $this->actingAs($user)->postJson("/api/m/acme/registrations/{$boltRegistration->id}/approve")->assertNotFound();
+        $this->actingAs($user)->postJson("/api/m/acme/registrations/{$boltRegistration->id}/reject", ['reason' => 'x'])->assertNotFound();
+
+        $this->assertSame('pending', Registration::withoutTenant()->find($boltRegistration->id)->status);
+    }
+
+    public function test_a_dealer_only_sees_their_own_registrations_and_documents(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $prairie = $this->dealer('Prairie Equipment', $acme);
+        $rival = $this->dealer('Rival Equipment', $acme);
+        $this->registrationWithDocument($acme, $this->machine($acme, 'MINE-1', $this->link($prairie, $acme)));
+        [$rivalRegistration, $rivalDoc] = $this->registrationWithDocument($acme, $this->machine($acme, 'RIVAL-1', $this->link($rival, $acme)));
+        $user = $this->dealerUser($prairie);
+
+        $this->actingAs($user)->getJson('/api/m/acme/registrations')
+            ->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.machine.serial_no', 'MINE-1');
+        $this->actingAs($user)->getJson("/api/m/acme/registrations/{$rivalRegistration->id}")->assertNotFound();
+        $this->actingAs($user)->get("/api/m/acme/registrations/{$rivalRegistration->id}/documents/{$rivalDoc->id}")->assertNotFound();
+        $this->actingAs($user)->getJson('/api/m/acme/dashboard')->assertJsonPath('registrations_pending', 1);
+    }
+
+    public function test_a_document_is_only_reachable_through_its_own_registration(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $link = $this->link($this->dealer('Prairie Equipment', $acme), $acme);
+        [$mine] = $this->registrationWithDocument($acme, $this->machine($acme, 'SN-1', $link));
+        [, $otherDoc] = $this->registrationWithDocument($acme, $this->machine($acme, 'SN-2', $link));
+
+        // A document id paired with a different registration's id is "not found".
+        $this->actingAs($this->staff($acme))->get("/api/m/acme/registrations/{$mine->id}/documents/{$otherDoc->id}")->assertNotFound();
+    }
+
+    public function test_a_dealer_cant_register_another_dealers_or_manufacturers_machine(): void
+    {
+        Storage::fake('documents');
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $prairie = $this->dealer('Prairie Equipment', $acme);
+        $rival = $this->dealer('Rival Equipment', $acme);
+        $rivalMachine = $this->machine($acme, 'RIVAL-1', $this->link($rival, $acme));
+        $boltMachine = $this->machine($bolt, 'BOLT-1', $this->link($this->dealer('Bolt Dealer', $bolt), $bolt));
+        $user = $this->dealerUser($prairie);
+
+        foreach ([$rivalMachine, $boltMachine] as $machine) {
+            $this->actingAs($user)->postJson('/api/m/acme/registrations', [
+                'machine_id' => $machine->id, 'type' => 'rental', 'delivered_on' => now()->toDateString(),
+                'customer' => ['contact_name' => 'X', 'phone' => '1'],
+            ])->assertNotFound();
+        }
+
+        $this->assertSame(0, Registration::withoutTenant()->count());
+    }
+
+    public function test_end_users_with_the_same_email_stay_separate_per_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        Tenant::run($acme, fn () => EndUser::fromCustomer(['contact_name' => 'Dana', 'email' => 'dana@example.com']));
+        Tenant::run($bolt, fn () => EndUser::fromCustomer(['contact_name' => 'Dana', 'email' => 'dana@example.com']));
+
+        $this->assertSame(2, EndUser::withoutTenant()->count());
+        $this->assertSame(1, Tenant::run($acme, fn () => EndUser::count()));
+    }
+
+    /** A pending registration for $machine with one stored document. */
+    private function registrationWithDocument(Manufacturer $manufacturer, Machine $machine): array
+    {
+        return Tenant::run($manufacturer, function () use ($machine) {
+            $registration = Registration::create([
+                'machine_id' => $machine->id, 'dealer_link_id' => $machine->dealer_link_id, 'type' => 'sale',
+                'delivered_on' => now(), 'customer' => ['contact_name' => 'Secret Customer'],
+            ]);
+            $path = Tenant::current()->id().'/registrations/'.$registration->id.'/doc.pdf';
+            Storage::disk('documents')->put($path, '%PDF-1.4 secret');
+            $doc = $registration->documents()->create([
+                'kind' => 'bill_of_sale', 'original_name' => 'bill.pdf', 'path' => $path, 'mime' => 'application/pdf',
+                'size' => 15, 'sha256' => str_repeat('0', 64), 'scan_status' => 'clean',
+            ]);
+
+            return [$registration, $doc];
+        });
     }
 
     public function test_a_dealer_never_learns_which_dealer_had_a_machine_before(): void

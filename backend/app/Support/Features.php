@@ -54,6 +54,19 @@ final class Features
             'label' => 'Change a machine\'s status',
             'roles' => ['owner', 'admin', 'inside_sales', 'dealer_admin', 'dealer_user'],
         ],
+        // Staff see every registration; a dealer sees only their own (Registration's dealer scope).
+        'registrations' => [
+            'label' => 'Sale and rental registrations',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'warranty', 'finance', 'dealer_admin', 'dealer_user'],
+        ],
+        'register_machines' => [
+            'label' => 'Register a sale or rental',
+            'roles' => ['owner', 'admin', 'inside_sales', 'dealer_admin', 'dealer_user'],
+        ],
+        'review_registrations' => [
+            'label' => 'Approve and reject registrations',
+            'roles' => ['owner', 'admin', 'inside_sales', 'warranty'],
+        ],
         'dealers' => [
             'label' => 'Dealer network',
             'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],

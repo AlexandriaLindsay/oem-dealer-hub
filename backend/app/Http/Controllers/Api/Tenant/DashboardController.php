@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\DealerLink;
 use App\Models\Machine;
 use App\Models\ProductLine;
+use App\Models\Registration;
 use App\Support\Plan;
+use App\Support\Uploads;
 use App\Tenancy\Tenant;
 use Illuminate\Http\JsonResponse;
 
@@ -22,12 +24,16 @@ class DashboardController extends Controller
                 'acting_as' => 'dealer',
                 'product_lines' => ProductLine::count(),
                 'machines' => self::machinesByStatus(),
+                // Their own, waiting for the manufacturer (Registration's dealer scope).
+                'registrations_pending' => Registration::where('status', Registration::PENDING)->count(),
             ]);
         }
 
         $usage = [
             'dealers' => DealerLink::count(),
             'staff' => $manufacturer->staff()->count(),
+            // In GB to match the plan's limit; one decimal is plenty on a dashboard.
+            'storage_gb' => round(Uploads::usedBytes() / 1024 ** 3, 1),
         ];
 
         return response()->json([
@@ -44,6 +50,7 @@ class DashboardController extends Controller
             ]),
             'product_lines' => ProductLine::count(),
             'machines' => self::machinesByStatus(),
+            'registrations_pending' => Registration::where('status', Registration::PENDING)->count(),
         ]);
     }
 

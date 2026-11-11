@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Tenancy\BelongsToManufacturer;
-use App\Tenancy\Tenant;
+use App\Tenancy\VisibleToOwnDealer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +20,8 @@ use Illuminate\Support\Facades\DB;
  */
 class Machine extends Model
 {
-    use BelongsToManufacturer, HasFactory;
+    // A dealer only ever sees the machines they have now (VisibleToOwnDealer).
+    use BelongsToManufacturer, HasFactory, VisibleToOwnDealer;
 
     /** In order of a machine's usual life at a dealer. */
     public const STATUSES = ['inventory', 'demo', 'rental', 'sold', 'used'];
@@ -33,22 +34,6 @@ class Machine extends Model
             'built_at' => 'date',
             'shipped_at' => 'date',
         ];
-    }
-
-    /**
-     * A dealer only ever sees the machines they have now - never another
-     * dealer's, even at the same manufacturer. A global scope rather than a
-     * filter in each controller, so a forgotten filter can't leak a
-     * competitor's stock.
-     */
-    protected static function booted(): void
-    {
-        static::addGlobalScope('dealer', function (Builder $query) {
-            $tenant = Tenant::current();
-            if ($tenant->check() && $tenant->isDealer()) {
-                $query->where($query->qualifyColumn('dealer_link_id'), $tenant->dealerLink()->id);
-            }
-        });
     }
 
     public function productModel(): BelongsTo
@@ -148,6 +133,33 @@ class Machine extends Model
             $this->save();
             $this->record('transfer', $from, $link?->id, $by, $note);
         });
+    }
+
+    /**
+     * An approved registration: the machine is now sold (or out on rental) to
+     * $endUser. One history entry - "registration", from the old status to the
+     * registration type - rather than a plain status change, so the history
+     * shows it was registered, not just relabelled.
+     */
+    public function registered(Registration $registration, EndUser $endUser, ?User $by): void
+    {
+        DB::transaction(function () use ($registration, $endUser, $by) {
+            $from = $this->status;
+            $this->status = $registration->type === 'sale' ? 'sold' : 'rental';
+            $this->end_user_id = $endUser->id;
+            $this->save();
+            $this->record('registration', $from, $registration->type, $by, null);
+        });
+    }
+
+    public function endUser(): BelongsTo
+    {
+        return $this->belongsTo(EndUser::class);
+    }
+
+    public function registrations(): HasMany
+    {
+        return $this->hasMany(Registration::class)->orderByDesc('id');
     }
 
     private function record(string $type, string|int|null $from, string|int|null $to, ?User $by, ?string $note): void

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Tenant\FleetController;
 use App\Http\Controllers\Api\Tenant\MachineController;
 use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
+use App\Http\Controllers\Api\Tenant\RegistrationController;
 use App\Http\Controllers\Api\Tenant\StaffController;
 use App\Http\Controllers\Api\TwoFactorController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/machines/{machine}', [MachineController::class, 'show'])->middleware('feature:machines');
         Route::post('/machines/{machine}/status', [MachineController::class, 'updateStatus'])->middleware('feature:machine_status');
         Route::post('/machines/{machine}/transfer', [MachineController::class, 'transfer'])->middleware('feature:manage_machines');
+
+        Route::get('/registrations', [RegistrationController::class, 'index'])->middleware('feature:registrations');
+        Route::post('/registrations', [RegistrationController::class, 'store'])->middleware(['feature:register_machines', 'throttle:uploads']);
+        Route::get('/registrations/{registration}', [RegistrationController::class, 'show'])->middleware('feature:registrations');
+        Route::post('/registrations/{registration}/approve', [RegistrationController::class, 'approve'])->middleware('feature:review_registrations');
+        Route::post('/registrations/{registration}/reject', [RegistrationController::class, 'reject'])->middleware('feature:review_registrations');
+        Route::get('/registrations/{registration}/documents/{document}', [RegistrationController::class, 'document'])->middleware('feature:registrations');
 
         Route::get('/fleet', [FleetController::class, 'summary'])->middleware('feature:fleet_report');
         Route::get('/fleet/export', [FleetController::class, 'export'])->middleware('feature:fleet_report');

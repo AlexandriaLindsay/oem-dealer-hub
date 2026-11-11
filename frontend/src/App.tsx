@@ -6,6 +6,7 @@ import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage, TwoFactor
 import { DashboardPage, DealersPage, ProductsPage, StaffPage } from './pages/TenantPages'
 import { MachinePage, MachinesPage } from './pages/MachinePages'
 import { FleetPage } from './pages/FleetPage'
+import { RegistrationPage, RegistrationsPage } from './pages/RegistrationPages'
 
 /** Signed out -> sign in; no two-factor yet -> set it up; otherwise the page. */
 function RequireAuth({ children, allowWithoutTwoFactor = false }: { children: ReactNode; allowWithoutTwoFactor?: boolean }) {
@@ -77,6 +78,8 @@ export default function App() {
             <Route path="machines" element={<MachinesPage />} />
             <Route path="machines/:id" element={<MachinePage />} />
             <Route path="fleet" element={<FleetPage />} />
+            <Route path="registrations" element={<RegistrationsPage />} />
+            <Route path="registrations/:id" element={<RegistrationPage />} />
             <Route path="dealers" element={<DealersPage />} />
             <Route path="staff" element={<StaffPage />} />
           </Route>

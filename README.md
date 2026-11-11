@@ -85,9 +85,17 @@ Phase 1 (MVP), in progress:
 - [x] Machines by serial number, with statuses (inventory, demo, rental, sold, used), a dealer (or still at the factory) and a history of every change
 - [x] Staff add machines and move them between dealers; dealers see only their own machines and keep their status current
 - [x] Fleet report: machines by status, dealer and model across all dealers, with the same filters as the machine list, and an Excel export (OpenSpout, streamed in chunks; text is always written as text, so nothing in a cell can run as a formula)
-- [ ] Product registration (sale and rental) with a review queue
+- [x] Product registration: dealers register a sale or rental with the customer and documents; the manufacturer approves (machine becomes sold or rental, customer becomes an end user) or rejects with a reason; both sides get an email
 - [ ] Manuals library, searchable by serial number
+- [ ] Azure Blob storage driver for documents (see "Uploads" below)
 - [ ] CSV import of existing machines, with an audit report
 - [ ] Onboarding tour
 
-**A dealer only ever sees their own machines.** `Machine` has a second global scope on top of the manufacturer one: when the request is acting as a dealer, it only returns that dealer's machines. A controller that forgets a filter still can't show one dealer another dealer's stock. A dealer also sees other dealers in a machine's history only as "another dealer".
+## Uploads
+
+- **Files never live in the web root.** They go on the `documents` disk (`DEALERDOCK_DOCUMENTS_DISK`): a private folder locally (`storage/app/private/documents`, gitignored), object storage in production. They're only sent through the API after its access checks, always as a download, never shown inline in the browser.
+- **Every upload is scanned before it's stored** (`App\Support\Uploads`). `DEALERDOCK_SCANNER=clamav` sends each file to a ClamAV daemon (`CLAMAV_HOST`, `CLAMAV_PORT`). If ClamAV can't be reached, the upload is refused rather than stored unchecked. `none` is for local development only: files are marked "not scanned", and the app refuses to boot with it in production.
+- PDF, JPG and PNG only, up to 20 MB each. Stored under generated names. Uploads count toward the plan's file storage.
+- `migrate:fresh` doesn't empty the documents folder. Delete `backend/storage/app/private/documents` if you want a clean start.
+
+**A dealer only ever sees their own machines.** `Machine` and `Registration` have a second global scope on top of the manufacturer one (`App\Tenancy\VisibleToOwnDealer`): when the request is acting as a dealer, they only return that dealer's rows. A controller that forgets a filter still can't show one dealer another dealer's stock. A dealer also sees other dealers in a machine's history only as "another dealer".
