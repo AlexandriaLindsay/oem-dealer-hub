@@ -70,7 +70,7 @@ export function PrivacyPage() {
       <h2>What we collect</h2>
       <ul>
         <li>
-          <strong>Account details:</strong> name, email, your role, the company or dealer you belong to. Your password is stored only as a one-way hash. Your two-factor sign-in secret is stored encrypted.
+          <strong>Account details:</strong> name, email, your role, the company or dealer you belong to. Your password is stored only as a one-way hash. Your two-factor sign-in secret is stored encrypted. If you get sign-in codes by email, we email them to you; a code is kept only as a scrambled copy, for 10 minutes.
         </li>
         <li>
           <strong>What you add:</strong> company and dealer details, product lines, machines and their history, registrations and their documents, manuals, imports and their reports, and your logo.
@@ -124,6 +124,16 @@ export function PrivacyPage() {
               <td>OEM Dealer Hub</td>
               <td className="wrap">Only if you tick "Keep me signed in": signs you back in on this browser.</td>
               <td className="wrap">Up to 400 days, or until you sign out</td>
+            </tr>
+            <tr>
+              <td>
+                <code>odh_trusted_browser</code> cookie
+              </td>
+              <td>OEM Dealer Hub</td>
+              <td className="wrap">
+                Only if you tick "Remember this browser" after entering a sign-in code: lets this browser skip the code (you still need your password). We keep a scrambled copy of it and a short description such as "Chrome on Windows", so you can see and forget remembered browsers.
+              </td>
+              <td className="wrap">30 days, or until you forget the browser or change your password</td>
             </tr>
             <tr>
               <td>Turnstile check</td>

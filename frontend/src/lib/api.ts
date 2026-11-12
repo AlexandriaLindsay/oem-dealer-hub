@@ -102,6 +102,8 @@ export interface Me {
     name: string
     email: string
     two_factor: boolean
+    /** How they get codes: an authenticator app ('totp') or 'email'; null when not set up. */
+    two_factor_method: 'totp' | 'email' | null
     two_factor_required: boolean
     /** Guided tours this person has finished or skipped. */
     tours_seen: string[]

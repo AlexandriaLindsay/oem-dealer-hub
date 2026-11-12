@@ -91,7 +91,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/login', ['email' => $user->email, 'password' => 'a-long-enough-pass-9'])
             ->assertOk()
-            ->assertExactJson(['two_factor' => true]);
+            ->assertJsonPath('two_factor', true)->assertJsonPath('method', 'totp');
         $this->assertGuest();
 
         $this->postJson('/api/login/two-factor', ['code' => '123456'])->assertUnprocessable();

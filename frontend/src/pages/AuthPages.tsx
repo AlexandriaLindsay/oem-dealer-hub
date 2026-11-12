@@ -67,8 +67,11 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const [step, setStep] = useState<'password' | 'code'>('password')
+  // How the code comes: their app, or an email ('emailed' once one is on its way, to that address).
+  const [codeBy, setCodeBy] = useState<{ method: 'totp' | 'email'; emailed: string | null }>({ method: 'totp', emailed: null })
   const bot = useBotCheck()
   const { busy, error, run } = useSubmit(bot.reset)
+  const resend = useSubmit()
 
   // The staff console sends signed-out staff here with ?next=console. Only
   // that one value, and only to the address the API gives staff, so this
@@ -86,8 +89,10 @@ export function LoginPage() {
     e.preventDefault()
     const v = formValues(e.currentTarget)
     run(async () => {
-      const result = await api.post<Me | { two_factor: true }>('/login', { email: v.email, password: v.password, remember: v.remember === 'on', ...bot.field })
+      const result = await api.post<Me | { two_factor: true; method: 'totp' | 'email'; email: string }>('/login', { email: v.email, password: v.password, remember: v.remember === 'on', ...bot.field })
       if ('two_factor' in result) {
+        // Email-code people already have one on its way.
+        setCodeBy({ method: result.method, emailed: result.method === 'email' ? result.email : null })
         setStep('code')
       } else {
         signedIn(result)
@@ -99,25 +104,47 @@ export function LoginPage() {
     e.preventDefault()
     const v = formValues(e.currentTarget)
     run(async () => {
-      signedIn(await api.post<Me>('/login/two-factor', { code: v.code }))
+      signedIn(await api.post<Me>('/login/two-factor', { code: v.code, remember_browser: v.remember_browser === 'on' }))
+    })
+  }
+
+  /** "Email me a code" - instead of the app, or another one. */
+  function emailCode() {
+    resend.run(async () => {
+      const r = await api.post<{ email: string }>('/login/two-factor/email')
+      setCodeBy((c) => ({ ...c, emailed: r.email }))
     })
   }
 
   if (step === 'code') {
+    const byEmail = codeBy.emailed !== null
     return (
       <AuthCard title="Enter your code">
         {/* Its own key: without it React reuses the password step's input, so the
             password would show here in plain text and fill the code box. */}
         <form key="code" onSubmit={onCode} noValidate>
-          <p className="lede">Open your authenticator app and enter the 6-digit code for OEM Dealer Hub.</p>
+          <p className="lede">
+            {byEmail ? `We've emailed a 6-digit code to ${codeBy.emailed}. It works for 10 minutes.` : 'Open your authenticator app and enter the 6-digit code for OEM Dealer Hub.'}
+          </p>
           <Field label="Code" name="code" error={error} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={7} />
+          <label className="check">
+            <input type="checkbox" name="remember_browser" defaultChecked />
+            Remember this browser for 30 days
+          </label>
+          <p className="hint remember-hint">Untick on a shared or public computer.</p>
           <FormError error={error} />
+          {resend.error && <p className="form-error">{resend.error.field('code') ?? resend.error.message}</p>}
           <button className="primary" disabled={busy}>
             {busy ? 'Checking…' : 'Sign in'}
           </button>
-          <button type="button" className="link" onClick={() => setStep('password')}>
-            Use a different account
-          </button>
+          <p className="small code-options">
+            <button type="button" className="link" onClick={emailCode} disabled={resend.busy}>
+              {byEmail ? 'Send a new code' : "Don't have your phone? Email me a code"}
+            </button>
+            <button type="button" className="link" onClick={() => setStep('password')}>
+              Use a different account
+            </button>
+          </p>
         </form>
       </AuthCard>
     )
@@ -272,9 +299,56 @@ export function ResetPasswordPage() {
   )
 }
 
+/**
+ * Two-factor setup, one of two ways: an authenticator app (recommended), or
+ * a code by email each time - easier for someone who'd rather not install an
+ * app. Someone on email codes can come back here to move to an app.
+ */
 export function TwoFactorSetupPage() {
-  const { refresh, logout } = useAuth()
+  const { me, refresh, logout } = useAuth()
   const navigate = useNavigate()
+  const onEmail = me?.user.two_factor_method === 'email'
+  // Already on email codes: they're here to move to an app, so start there.
+  const [way, setWay] = useState<'choose' | 'app' | 'email'>(onEmail ? 'app' : 'choose')
+
+  async function done() {
+    await refresh()
+    navigate('/', { replace: true })
+  }
+
+  return (
+    <AuthCard
+      title={onEmail ? 'Use an authenticator app' : 'Set up two-factor sign-in'}
+      footer={
+        <button type="button" className="link" onClick={() => logout()}>
+          Sign out
+        </button>
+      }
+    >
+      {way === 'choose' && (
+        <>
+          <p className="lede">OEM Dealer Hub protects your company's dealer data with a second step at sign-in. How would you like to get your code?</p>
+          <div className="method-choices">
+            <button type="button" className="method-choice" onClick={() => setWay('app')}>
+              <strong>An authenticator app</strong>
+              <span className="badge badge-active">Recommended</span>
+              <span className="muted small">Microsoft Authenticator, Google Authenticator, 1Password… A code on your phone, even without signal.</span>
+            </button>
+            <button type="button" className="method-choice" onClick={() => setWay('email')}>
+              <strong>A code by email</strong>
+              <span className="muted small">We email you a code when you sign in. Nothing to install.</span>
+            </button>
+          </div>
+          <p className="hint">Either way, you can tick "Remember this browser" when you sign in, so your own computer only asks every 30 days.</p>
+        </>
+      )}
+      {way === 'app' && <AppSetup onDone={done} onBack={onEmail ? undefined : () => setWay('choose')} />}
+      {way === 'email' && <EmailSetup onDone={done} onBack={() => setWay('choose')} />}
+    </AuthCard>
+  )
+}
+
+function AppSetup({ onDone, onBack }: { onDone: () => Promise<void>; onBack?: () => void }) {
   const [setup, setSetup] = useState<{ secret: string; qr: string } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const { busy, error, run } = useSubmit()
@@ -291,24 +365,13 @@ export function TwoFactorSetupPage() {
     const v = formValues(e.currentTarget)
     run(async () => {
       await api.post('/two-factor/confirm', { code: v.code })
-      await refresh()
-      navigate('/', { replace: true })
+      await onDone()
     })
   }
 
   return (
-    <AuthCard
-      title="Set up two-factor sign-in"
-      footer={
-        <button type="button" className="link" onClick={() => logout()}>
-          Sign out
-        </button>
-      }
-    >
-      <p className="lede">
-        OEM Dealer Hub protects your company's dealer data with a second step at sign-in. Scan this code with an authenticator app (Microsoft Authenticator,
-        Google Authenticator, 1Password…), then enter the code it shows.
-      </p>
+    <>
+      <p className="lede">Scan this code with your authenticator app, then enter the code it shows.</p>
       {loadError && <p className="form-error">{loadError}</p>}
       {setup && (
         <>
@@ -319,7 +382,7 @@ export function TwoFactorSetupPage() {
               Enter this key in the app instead: <code>{setup.secret.match(/.{1,4}/g)?.join(' ')}</code>
             </p>
           </details>
-          <form onSubmit={onSubmit} noValidate>
+          <form key="app" onSubmit={onSubmit} noValidate>
             <Field label="Code from the app" name="code" error={error} inputMode="numeric" autoComplete="one-time-code" required maxLength={7} />
             <FormError error={error} />
             <button className="primary" disabled={busy}>
@@ -328,6 +391,59 @@ export function TwoFactorSetupPage() {
           </form>
         </>
       )}
-    </AuthCard>
+      {onBack && (
+        <button type="button" className="link" onClick={onBack}>
+          Choose another way
+        </button>
+      )}
+    </>
+  )
+}
+
+function EmailSetup({ onDone, onBack }: { onDone: () => Promise<void>; onBack: () => void }) {
+  const [sentTo, setSentTo] = useState<string | null>(null)
+  const send = useSubmit()
+  const confirm = useSubmit()
+
+  function sendCode() {
+    send.run(async () => {
+      const r = await api.post<{ email: string }>('/two-factor/email')
+      setSentTo(r.email)
+    })
+  }
+
+  // The first code goes out as soon as they choose email.
+  useEffect(sendCode, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const v = formValues(e.currentTarget)
+    confirm.run(async () => {
+      await api.post('/two-factor/email/confirm', { code: v.code })
+      await onDone()
+    })
+  }
+
+  return (
+    <>
+      <p className="lede">{sentTo ? `We've emailed a 6-digit code to ${sentTo}. Enter it to turn on email codes.` : 'Sending a code to your email…'}</p>
+      {send.error && <p className="form-error">{send.error.field('code') ?? send.error.message}</p>}
+      <form key="email" onSubmit={onSubmit} noValidate>
+        <Field label="Code from the email" name="code" error={confirm.error} inputMode="numeric" autoComplete="one-time-code" required maxLength={7} />
+        <FormError error={confirm.error} />
+        <button className="primary" disabled={confirm.busy}>
+          {confirm.busy ? 'Checking…' : 'Turn on email codes'}
+        </button>
+      </form>
+      <p className="small">
+        <button type="button" className="link" onClick={sendCode} disabled={send.busy}>
+          Send a new code
+        </button>{' '}
+        ·{' '}
+        <button type="button" className="link" onClick={onBack}>
+          Choose another way
+        </button>
+      </p>
+    </>
   )
 }
