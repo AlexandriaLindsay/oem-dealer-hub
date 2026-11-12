@@ -17,6 +17,7 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\Registration;
+use App\Models\SalesOrder;
 use App\Models\Territory;
 use App\Models\UsageDay;
 use App\Models\User;
@@ -46,6 +47,14 @@ class DatabaseSeeder extends Seeder
         $this->member('rep@acme.test', 'Riley Rep', Membership::MANUFACTURER, $acme->id, 'sales_rep');
         $this->member('owner@bolt.test', 'Blake Owner', Membership::MANUFACTURER, $bolt->id, 'owner');
 
+        // A trial about to run out, so the staff console's "trials ending" list has one.
+        $cobalt = Manufacturer::create(['name' => 'Cobalt Tillage', 'slug' => 'cobalt', 'plan' => Plan::TRIAL, 'trial_ends_at' => now()->addDays(3)]);
+        $this->member('owner@cobalt.test', 'Casey Owner', Membership::MANUFACTURER, $cobalt->id, 'owner');
+
+        // OEM Dealer Hub's own support person: the staff console (/admin), no manufacturer.
+        User::create(['name' => 'Sam Staff', 'email' => 'staff@oemdealerhub.test', 'password' => 'dealerdock-demo'])
+            ->forceFill(['is_platform_staff' => true])->save();
+
         Tenant::run($acme, function () {
             foreach (['Scrapers', 'Rippers', 'Hitches'] as $name) {
                 ProductLine::create(['name' => $name]);
@@ -73,6 +82,13 @@ class DatabaseSeeder extends Seeder
 
         Tenant::run($acme, fn () => $this->usage($acmePrairie));
         Tenant::run($acme, fn () => $this->territories($acme, $acmePrairie, $acmeNorthern));
+
+        // Prairie sells only Acme's scrapers: Pat's prices and quotes show just
+        // that line, though their used R-200 ripper is still in their machines.
+        // Northern has none chosen, so it carries every line.
+        Tenant::run($acme, fn () => $acmePrairie->productLines()->attach(
+            ProductLine::where('name', 'Scrapers')->value('id'), ['manufacturer_id' => $acme->id],
+        ));
     }
 
     /**
@@ -146,7 +162,8 @@ class DatabaseSeeder extends Seeder
 
         $path = $manufacturer->id.'/branding/'.Str::uuid().'.png';
         Uploads::disk()->put($path, $png);
-        $manufacturer->forceFill(['logo_path' => $path, 'logo_mime' => 'image/png', 'logo_updated_at' => now()])->save();
+        // And its own colour (Pro), the logo's orange - so the demo shows a brand that isn't OEM Dealer Hub blue.
+        $manufacturer->forceFill(['logo_path' => $path, 'logo_mime' => 'image/png', 'logo_updated_at' => now(), 'brand_color' => '#c2410c'])->save();
     }
 
     /** Models and machines: some at each dealer, some still at the factory, and a transfer in the history. */
@@ -371,6 +388,13 @@ class DatabaseSeeder extends Seeder
                 ]);
             }
             $quote->forceFill(['subtotal_cents' => $subtotal, 'discount_cents' => $discount, 'total_cents' => $subtotal - $discount])->save();
+
+            // A won quote is a sales order - here, already in production.
+            if ($status === Quote::WON) {
+                $order = SalesOrder::fromQuote($quote, User::where('email', 'owner@acme.test')->first());
+                // Won when the quote was decided (5 days ago), then into production.
+                $order->forceFill(['status' => SalesOrder::IN_PRODUCTION, 'created_at' => now()->subDays(5), 'started_at' => now()->subDays(3), 'po_number' => 'HF-2026-118'])->save();
+            }
         }
     }
 

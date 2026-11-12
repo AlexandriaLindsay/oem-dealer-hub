@@ -1,33 +1,109 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
+import {
+  BookOpen,
+  Boxes,
+  ChartPie,
+  CircleHelp,
+  ClipboardCheck,
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Map,
+  Megaphone,
+  Menu,
+  PackageCheck,
+  Plug,
+  Radio,
+  Settings,
+  ShieldCheck,
+  Store,
+  Tag,
+  Tractor,
+  TrendingUp,
+  Users,
+  Wrench,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { api, type ManufacturerAccess } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { tourFor } from '../lib/tours'
 import { trialEndText } from '../lib/tenant'
 import { useRecordVisit } from '../lib/usage'
+import { useBrandColor } from '../lib/brand'
 import { Tour } from './Tour'
 
-/** The nav, each item shown only to people with its feature. data-tour names come from `nav-` + its path. */
-const NAV: { to: string; label: string; feature: string }[] = [
-  { to: '', label: 'Dashboard', feature: 'dashboard' },
-  { to: 'machines', label: 'Machines', feature: 'machines' },
-  { to: 'registrations', label: 'Registrations', feature: 'registrations' },
-  { to: 'fleet', label: 'Fleet report', feature: 'fleet_report' },
-  { to: 'documents', label: 'Manuals', feature: 'documents' },
-  // Price lists (manage_pricing) are reached from the Prices page.
-  { to: 'prices', label: 'Prices', feature: 'catalog' },
-  { to: 'quotes', label: 'Quotes', feature: 'quotes' },
-  { to: 'parts-orders', label: 'Parts orders', feature: 'parts_orders' },
-  { to: 'announcements', label: 'Announcements', feature: 'announcements' },
-  { to: 'broadcasts', label: 'Broadcasts', feature: 'broadcasts' },
-  { to: 'products', label: 'Products', feature: 'products' },
-  { to: 'dealers', label: 'Dealers', feature: 'dealers' },
-  { to: 'territories', label: 'Territories', feature: 'territories' },
-  { to: 'usage', label: 'Usage', feature: 'usage_analytics' },
-  { to: 'staff', label: 'Staff', feature: 'manage_staff' },
-  { to: 'settings', label: 'Settings', feature: 'setup' },
-  { to: 'billing', label: 'Billing', feature: 'billing' },
+interface NavItem {
+  to: string
+  label: string
+  feature: string
+  icon: LucideIcon
+}
+
+/**
+ * The nav, in groups, each item shown only to people with its feature (a
+ * group with nothing in it isn't shown). data-tour names come from `nav-` + its path.
+ */
+const NAV: { title: string; items: NavItem[] }[] = [
+  {
+    title: 'Overview',
+    items: [
+      { to: '', label: 'Dashboard', feature: 'dashboard', icon: LayoutDashboard },
+      { to: 'fleet', label: 'Fleet report', feature: 'fleet_report', icon: ChartPie },
+      { to: 'usage', label: 'Usage', feature: 'usage_analytics', icon: TrendingUp },
+    ],
+  },
+  {
+    title: 'Machines',
+    items: [
+      { to: 'machines', label: 'Machines', feature: 'machines', icon: Tractor },
+      { to: 'registrations', label: 'Registrations', feature: 'registrations', icon: ClipboardCheck },
+      { to: 'documents', label: 'Manuals', feature: 'documents', icon: BookOpen },
+      { to: 'products', label: 'Products', feature: 'products', icon: Boxes },
+    ],
+  },
+  {
+    title: 'Sales and parts',
+    items: [
+      // Price lists (manage_pricing) are reached from the Prices page.
+      { to: 'prices', label: 'Prices', feature: 'catalog', icon: Tag },
+      { to: 'quotes', label: 'Quotes', feature: 'quotes', icon: FileText },
+      { to: 'sales-orders', label: 'Sales orders', feature: 'sales_orders', icon: PackageCheck },
+      { to: 'parts-orders', label: 'Parts orders', feature: 'parts_orders', icon: Wrench },
+    ],
+  },
+  {
+    title: 'Dealers',
+    items: [
+      { to: 'dealers', label: 'Dealers', feature: 'dealers', icon: Store },
+      { to: 'territories', label: 'Territories', feature: 'territories', icon: Map },
+      { to: 'broadcasts', label: 'Broadcasts', feature: 'broadcasts', icon: Radio },
+      { to: 'announcements', label: 'Announcements', feature: 'announcements', icon: Megaphone },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [
+      { to: 'staff', label: 'Staff', feature: 'manage_staff', icon: Users },
+      { to: 'settings', label: 'Settings', feature: 'setup', icon: Settings },
+      { to: 'integrations', label: 'Integrations', feature: 'erp_integration', icon: Plug },
+      { to: 'billing', label: 'Billing', feature: 'billing', icon: CreditCard },
+    ],
+  },
 ]
+
+const ROLE_NAMES: Record<string, string> = { sales_rep: 'Sales rep', inside_sales: 'Inside sales' }
+const roleName = (role: string) => ROLE_NAMES[role] ?? role.charAt(0).toUpperCase() + role.slice(1).replace(/_/g, ' ')
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('')
 
 export function useCurrentManufacturer(): ManufacturerAccess | undefined {
   const { me } = useAuth()
@@ -42,7 +118,13 @@ export function Layout() {
   const current = useCurrentManufacturer()
   // null: not decided yet this visit; true: showing; false: closed.
   const [touring, setTouring] = useState<boolean | null>(null)
+  // The menu on a phone, where the sidebar folds away.
+  const [menuOpen, setMenuOpen] = useState(false)
   useRecordVisit(current?.slug, current?.standing === 'lapsed')
+  useBrandColor(current?.brand_color)
+
+  // Picking a page closes the phone menu.
+  useEffect(() => setMenuOpen(false), [location.pathname])
 
   if (!me || !current) return null
 
@@ -50,7 +132,7 @@ export function Layout() {
   // A paused account shows only Billing (to the owner) - everything else would just fail.
   const paused = current.standing === 'lapsed'
   const onBilling = location.pathname.endsWith('/billing')
-  const nav = NAV.filter((item) => current.features.includes(item.feature) && (!paused || item.to === 'billing'))
+  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((item) => current.features.includes(item.feature) && (!paused || item.to === 'billing')) })).filter((g) => g.items.length > 0)
 
   const tour = tourFor(current)
   // Starts by itself once per person, the first time they land here.
@@ -68,20 +150,34 @@ export function Layout() {
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <div className="brand">
-          <img src="/favicon.svg" alt="" width={24} height={24} />
-          <span>DealerDock</span>
+    // On a phone the tour points at menu items, so the menu stays open while it runs.
+    <div className={`shell${menuOpen || showTour ? ' menu-open' : ''}`}>
+      <aside className="sidebar">
+        <div className="side-head">
+          <div className="side-brand">
+            {/* A logo that won't load just isn't shown - no broken-image box on every page. */}
+            {current.logo_url ? (
+              <span className="side-logo">
+                <img src={current.logo_url} alt="" onError={(e) => (e.currentTarget.parentElement!.style.display = 'none')} />
+              </span>
+            ) : (
+              <img className="side-mark" src="/favicon.svg" alt="" width={28} height={28} />
+            )}
+            <span className="side-names">
+              <strong>{current.name}</strong>
+              <small>OEM Dealer Hub</small>
+            </span>
+          </div>
+          <button className="side-menu-button" aria-expanded={menuOpen} aria-controls="side-nav" onClick={() => setMenuOpen((o) => !o)}>
+            {menuOpen ? <X size={20} aria-hidden /> : <Menu size={20} aria-hidden />}
+            <span className="sr-only">Menu</span>
+          </button>
         </div>
 
-        {/* A logo that won't load just isn't shown - no broken-image box on every page. */}
-        {current.logo_url && <img className="brand-logo" src={current.logo_url} alt={`${current.name} logo`} onError={(e) => (e.currentTarget.style.display = 'none')} />}
-
         {/* The brand switcher - one login across every manufacturer. */}
-        {me.manufacturers.length > 1 ? (
+        {me.manufacturers.length > 1 && (
           <label className="switcher" data-tour="switcher">
-            <span className="sr-only">Manufacturer</span>
+            <span className="side-label">Brand</span>
             <select value={current.slug} onChange={(e) => navigate(`/m/${e.target.value}`)}>
               {me.manufacturers.map((m) => (
                 <option key={m.slug} value={m.slug}>
@@ -90,34 +186,51 @@ export function Layout() {
               ))}
             </select>
           </label>
-        ) : (
-          <span className="switcher-name">{current.name}</span>
         )}
 
-        <div className="who">
-          <span>
-            {me.user.name}
-            {current.dealer && <small> · {current.dealer.name}</small>}
-          </span>
-          <button className="link" onClick={() => logout().then(() => navigate('/login'))}>
-            Sign out
-          </button>
+        <nav className="side-nav" id="side-nav" aria-label="Main">
+          {groups.map((group) => (
+            <div className="side-group" key={group.title}>
+              <span className="side-label">{group.title}</span>
+              {group.items.map(({ to, label, icon: Icon }) => (
+                // Machines stays highlighted on a machine's own page; the dashboard only on itself.
+                <NavLink key={to} to={to} end={to === ''} data-tour={`nav-${to || 'dashboard'}`}>
+                  <Icon size={18} strokeWidth={1.75} aria-hidden />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="side-foot">
+          {me.user.console_url && (
+            <a className="side-tour" href={me.user.console_url}>
+              <ShieldCheck size={18} strokeWidth={1.75} aria-hidden />
+              <span>Staff console</span>
+            </a>
+          )}
+          {!paused && (
+            <button className="side-tour" onClick={() => setTouring(true)}>
+              <CircleHelp size={18} strokeWidth={1.75} aria-hidden />
+              <span>Take the tour</span>
+            </button>
+          )}
+          <div className="side-user">
+            <span className="avatar" aria-hidden>
+              {initials(me.user.name)}
+            </span>
+            <span className="side-names">
+              <strong>{me.user.name}</strong>
+              <small>{current.dealer ? current.dealer.name : roleName(current.role)}</small>
+            </span>
+            <button className="side-signout" onClick={() => logout().then(() => navigate('/login'))} title="Sign out">
+              <LogOut size={18} strokeWidth={1.75} aria-hidden />
+              <span className="sr-only">Sign out</span>
+            </button>
+          </div>
         </div>
-      </header>
-
-      <nav className="sidenav" aria-label="Main">
-        {nav.map((item) => (
-          // Machines stays highlighted on a machine's own page; the dashboard only on itself.
-          <NavLink key={item.to} to={item.to} end={item.to === ''} data-tour={`nav-${item.to || 'dashboard'}`}>
-            {item.label}
-          </NavLink>
-        ))}
-        {!paused && (
-          <button className="link tour-again" onClick={() => setTouring(true)}>
-            Take the tour
-          </button>
-        )}
-      </nav>
+      </aside>
 
       <main className="content">
         {/* Not on Billing itself, which says the same thing in full. */}
@@ -141,7 +254,7 @@ export function Layout() {
 function Paused({ current, canBill }: { current: ManufacturerAccess; canBill: boolean }) {
   return (
     <section className="paused" aria-labelledby="paused-title">
-      <h1 id="paused-title">The DealerDock account for {current.name} is paused</h1>
+      <h1 id="paused-title">The OEM Dealer Hub account for {current.name} is paused</h1>
       {canBill ? (
         <>
           <p className="lede">Your free trial or subscription has ended. Choose a plan and everyone picks up where they left off: nothing has been deleted.</p>

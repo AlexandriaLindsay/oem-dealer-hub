@@ -21,7 +21,7 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->text('two_factor_secret')->nullable()->after('password');
             $table->timestamp('two_factor_confirmed_at')->nullable()->after('two_factor_secret');
-            // DealerDock's own staff (support and billing) - not a tenant role.
+            // OEM Dealer Hub's own staff (support and billing) - not a tenant role.
             $table->boolean('is_platform_staff')->default(false)->after('two_factor_confirmed_at');
         });
 

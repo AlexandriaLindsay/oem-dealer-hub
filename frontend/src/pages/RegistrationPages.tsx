@@ -23,7 +23,7 @@ export function RegistrationBadge({ status }: { status: RegistrationStatus }) {
 }
 
 function asApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
+  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' })
 }
 
 function formatSize(bytes: number): string {

@@ -36,6 +36,6 @@ class PartsOrderSubmitted extends Notification
             ->subject(($d['rush'] ? 'RUSH ' : '')."Parts order {$d['number']} from {$d['dealer']}")
             ->line("{$d['dealer']} sent parts order {$d['number']} with {$d['lines']} line".($d['lines'] === 1 ? '' : 's').'.'.($d['rush'] ? ' They asked for rush shipping.' : ''))
             ->action('Open the order', $d['url'])
-            ->salutation("DealerDock, for {$d['manufacturer']}");
+            ->salutation("OEM Dealer Hub, for {$d['manufacturer']}");
     }
 }

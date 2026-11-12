@@ -12,6 +12,7 @@ use App\Tenancy\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /** The manufacturer's dealer network - its links, with each dealer's public details. */
@@ -19,7 +20,7 @@ class DealerController extends Controller
 {
     public function index(): JsonResponse
     {
-        $links = DealerLink::with(['dealer', 'territory:id,name'])->get()->sortBy('dealer.name')->values();
+        $links = DealerLink::with(['dealer', 'territory:id,name', 'productLines:id'])->get()->sortBy('dealer.name')->values();
 
         return response()->json($links->map(fn (DealerLink $link) => self::row($link)));
     }
@@ -93,6 +94,29 @@ class DealerController extends Controller
         return response()->json(self::row($dealerLink));
     }
 
+    /**
+     * Sets the product lines a dealer carries. An empty list means every line
+     * (DealerLink::productLineIds). It limits what they can price and quote,
+     * not the machines, manuals or registrations they already have.
+     */
+    public function productLines(Request $request, int $link): JsonResponse
+    {
+        $dealerLink = DealerLink::with('dealer')->findOrFail($link);
+        $data = $request->validate([
+            'product_line_ids' => ['present', 'array', 'max:500'],
+            // Exists *at this manufacturer* - another one's line is just "not found".
+            'product_line_ids.*' => ['integer', 'distinct', Rule::exists('product_lines', 'id')->where('manufacturer_id', Tenant::current()->id())],
+        ], [
+            'product_line_ids.*.exists' => 'That isn\'t one of your product lines.',
+        ]);
+
+        $dealerLink->productLines()->sync(
+            collect($data['product_line_ids'])->mapWithKeys(fn ($id) => [$id => ['manufacturer_id' => $dealerLink->manufacturer_id]])
+        );
+
+        return response()->json(self::row($dealerLink->load('productLines:id')));
+    }
+
     private static function row(DealerLink $link): array
     {
         return [
@@ -104,6 +128,8 @@ class DealerController extends Controller
             'price_list_id' => $link->price_list_id,
             // null: in no territory.
             'territory' => $link->territory ? ['id' => $link->territory->id, 'name' => $link->territory->name] : null,
+            // Empty: carries every line.
+            'product_line_ids' => $link->productLineIds() ?? [],
             'status' => $link->status,
             'city' => $link->dealer->city,
             'region' => $link->dealer->region,

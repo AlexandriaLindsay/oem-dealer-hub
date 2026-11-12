@@ -1,8 +1,10 @@
-# DealerDock
+# OEM Dealer Hub
 
-A self-serve dealer platform and dealer network for equipment manufacturers. Manufacturers pay (Starter $49/mo up to 10 dealers, Pro $99/mo unlimited); dealers are always free. ERP integration is quoted separately.
+A self-serve dealer platform and dealer network for equipment manufacturers. Manufacturers pay (Starter $49/mo up to 10 dealers, Pro $99/mo unlimited); dealers are always free. Pro includes self-serve ERP integration (API keys and webhooks); hands-on setup is quoted separately.
 
 The product and architecture plan is in [docs/PLAN.md](docs/PLAN.md).
+
+It was called DealerDock until 2026-11-11, which is why `config/dealerdock.php` and the `DEALERDOCK_*` settings still use that name. In your own `backend/.env`, set `APP_NAME="OEM Dealer Hub"` (it names emails and the session cookie).
 
 ## Layout
 
@@ -41,6 +43,18 @@ Local development uses SQLite (`backend/database/database.sqlite`); production u
 | `rep@acme.test` | Sales rep at Acme covering the Canada territory - sees only Prairie Equipment, and can't add dealers |
 | `owner@bolt.test` | Owner of Bolt Attachments (Starter - 10 dealer limit) |
 | `dealer@prairie.test` | Prairie Equipment - a dealer for **both** Acme and Bolt, with a brand switcher |
+| `owner@cobalt.test` | Owner of Cobalt Tillage, on a trial that ends in 3 days |
+| `staff@oemdealerhub.test` | OEM Dealer Hub staff - the staff console, no manufacturer |
+
+**Staff console** (http://localhost:8010/admin): OEM Dealer Hub's own back office, for every manufacturer, person and dealer. Sign in through the app as `staff@oemdealerhub.test` (or open `/admin`, which sends you to sign-in and back). It needs two-factor set up, even where the app doesn't require it. From the console, staff can extend a trial, set the plan of an account billed outside Stripe (or pause it), reset someone's two-factor, and send a password reset. Each change asks for a reason and goes into **Activity**. Only the command line can make someone staff:
+
+```bash
+php artisan platform:staff someone@example.com            # grant
+php artisan platform:staff someone@example.com --revoke   # revoke
+php artisan platform:staff                                # list
+```
+
+The console reads the app's sign-in session, so in production it has to be served from the same host as the API.
 
 Password reset and invite emails go to `backend/storage/logs/laravel.log` locally (`MAIL_MAILER=log`).
 
@@ -84,7 +98,7 @@ Phase 0 (foundation) - see [docs/PLAN.md](docs/PLAN.md) section 7.
 - [x] Dashboard with plan usage, product lines, dealers, staff - and the brand switcher
 - [x] CI: tests and build on every push
 - [ ] Email and text 2FA codes, trusted browsers
-- [ ] Filament console for DealerDock staff
+- [x] Staff console (Filament, `/admin`) for OEM Dealer Hub staff: manufacturers with plan, standing and usage; people; dealers across the network; trial extensions, manual plans, two-factor resets and password reset emails, each with a reason in the activity log
 - [ ] Azure: deployment slots, OIDC deploys, MySQL, Blob storage
 
 Phase 1 (MVP), done:
@@ -112,12 +126,21 @@ Phase 3 (commercial), in progress:
 
 - [x] Price lists: USD or CAD, a price per model and option (stored in cents), a default list, dealers assigned to lists, copying a list. Starter includes 1 list (counted in the downgrade check).
 - [x] Prices page: each dealer sees only their own list (or the default), never another dealer's or the list's name. Unpriced items show "Price on request".
-- [x] Quotes: dealers build them for customers from their own prices (model, options, quantity, their own lines, price overrides, a discount), numbered per dealer (Q-1001…), draft → sent → won/lost, locked once sent, copy, printable page. Prices are copied in, so later price changes never alter a sent quote. Sales staff can read every dealer's quotes; dealers see only their own.
+- [x] Quotes: dealers build them for customers from their own prices (model, options, quantity, their own lines, price overrides, a discount), numbered per dealer (Q-1001…), draft → sent (the dealer), then won/lost (the manufacturer), locked once sent, copy, printable page. Prices are copied in, so later price changes never alter a sent quote. Each side sees its own part: a dealer sees only their own drafts and sent quotes, and a quote leaves their view once it’s closed; manufacturer staff see every dealer’s sent quotes (never drafts) and mark them won or lost.
+- [x] Sales orders: a quote marked won becomes a sales order (SO-1001…) with the quote's customer, lines and totals. Staff add the customer's PO, a wanted-by date and notes, then move it on a board: received → in production → shipped → delivered, or cancelled with a reason. Manufacturer staff only: owner, admin, sales and finance can read them; owner, admin and inside sales move them. Territory reps see only their dealers' orders.
+- [x] Connect your ERP (Pro), self-serve under **Integrations**:
+  - **API keys** for the API (`/api/v1`): read sales orders and the catalog; update order status and ERP numbers; add or update machines by serial; set prices by item number.
+  - **Who's in charge** switches: "order status comes from our ERP" and "prices come from our ERP". With one on, that data changes only through the API, so the two systems never disagree.
+  - **Signed webhooks**, sent when a sales order is made, moves or changes, with retries, a log of recent calls and a test button.
+  - **ERP numbers** for dealers, models, options and sales orders.
+
+  Details in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Locally, webhooks go out only while `php artisan queue:work` runs.
 - [x] Parts orders: dealers order by part number (or paste lines from a spreadsheet), with PO, machine serial, shipping and ship-to; the parts desk works an oldest-first queue: start → shipped (carrier, tracking) or cancelled (with a reason), and everyone gets an email. No prices: there's no parts price list yet, so the parts desk invoices as it does today.
 - [x] Broadcasts (Pro): announcements to all or chosen dealers, optionally emailed (queued); recipients fixed when sent; read tracking per person; withdraw. Dealers read them under Announcements.
-- [x] Usage analytics (Pro): which dealers use DealerDock, how often and for what, including the ones who don't. Counts page visits per person, area and day (no addresses, no content), only on plans with the report, and keeps them 13 months (`usage:prune`). The privacy policy says so.
+- [x] Usage analytics (Pro): which dealers use OEM Dealer Hub, how often and for what, including the ones who don't. Counts page visits per person, area and day (no addresses, no content), only on plans with the report, and keeps them 13 months (`usage:prune`). The privacy policy says so.
 - [x] Territories (Pro): owners and admins group dealers into territories and choose which sales reps and inside sales staff cover each. A rep in a territory sees only its dealers (and their machines, registrations, quotes and parts orders), plus the factory's own stock; reps in no territory and all other staff see every dealer. On Starter nobody is limited, and assignments are kept for an upgrade.
-- [ ] Own subdomain and colours (Pro, marked "coming soon" until built)
+- [x] Your own colour (Pro): owners and admins pick the brand's colour in Settings, and staff and dealers see it on buttons, links and the menu. It's adjusted automatically (darker in light mode, lighter in dark mode) so text stays readable, and the preview shows both modes before saving. On Starter it's kept but not shown.
+- [ ] Your own subdomain (Pro, "coming soon" - needs DNS and hosting decided first)
 
 ## Billing
 

@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Brings a manufacturer's existing machines in from a spreadsheet - the
- * onboarding step, and the no-ERP way to keep DealerDock current
+ * onboarding step, and the no-ERP way to keep OEM Dealer Hub current
  * (docs/PLAN.md section 5).
  *
  * analyse() works out what every row would do, writing nothing - the preview.
@@ -170,9 +170,9 @@ final class MachineImporter
             if (! $messages && $machine) {
                 if ($this->mode === self::ADD) {
                     $action = 'skip';
-                    $messages[] = 'Already in DealerDock, so it was left as it is. Choose "add new and update existing" to update it.';
+                    $messages[] = 'Already in OEM Dealer Hub, so it was left as it is. Choose "add new and update existing" to update it.';
                 } elseif ((int) $machine->product_model_id !== $model->id) {
-                    $messages[] = "In DealerDock this machine's model is {$machine->productModel->name}, but the file says {$model->name}. An import doesn't change a machine's model.";
+                    $messages[] = "In OEM Dealer Hub this machine's model is {$machine->productModel->name}, but the file says {$model->name}. An import doesn't change a machine's model.";
                 } else {
                     $changes = $this->changes($machine, $linkGiven, $link, $status, $productionNo, $dates);
                     $action = $changes ? 'update' : 'unchanged';

@@ -67,7 +67,11 @@ class PriceListController extends Controller
     {
         $list = PriceList::withCount(['items', 'dealerLinks'])->findOrFail($priceList);
 
-        return response()->json(self::summary($list) + ['lines' => self::catalog($list)]);
+        return response()->json(self::summary($list) + [
+            'lines' => self::catalog($list),
+            // Prices are set by their ERP (Integrations), so the page shows them without the editor.
+            'prices_from_erp' => Tenant::current()->manufacturer()->erpOwns('prices'),
+        ]);
     }
 
     public function update(Request $request, int $priceList): JsonResponse
@@ -88,6 +92,10 @@ class PriceListController extends Controller
     {
         $list = PriceList::findOrFail($priceList);
         $tenantId = Tenant::current()->id();
+        // One owner per kind of data: when their ERP sets prices, they're not also typed in here.
+        if (Tenant::current()->manufacturer()->erpOwns('prices')) {
+            throw ValidationException::withMessages(['prices' => 'Prices come from your ERP. Change them there, or turn that off under Integrations.']);
+        }
         $data = $request->validate([
             'prices' => ['required', 'array', 'max:2000'],
             'prices.*.type' => ['required', Rule::in([PriceListItem::MODEL, PriceListItem::OPTION])],
@@ -180,22 +188,25 @@ class PriceListController extends Controller
      * Every product line, model and option with its price on $list - the
      * shape both the price editor and the dealers' catalog use.
      */
-    public static function catalog(PriceList $list): array
+    /** @param  list<int>|null  $lineIds  only these product lines (a dealer's, DealerLink::productLineIds); null for all */
+    public static function catalog(PriceList $list, ?array $lineIds = null): array
     {
         $prices = $list->priceMap();
         $price = fn (string $type, int $id) => isset($prices["$type:$id"]) ? Money::fromCents($prices["$type:$id"]) : null;
 
-        return ProductLine::with(['models.options'])->orderBy('name')->get()->map(fn (ProductLine $line) => [
-            'id' => $line->id,
-            'name' => $line->name,
-            'models' => $line->models->map(fn ($m) => [
-                'id' => $m->id,
-                'name' => $m->name,
-                'category' => $m->category,
-                'price' => $price(PriceListItem::MODEL, $m->id),
-                'options' => $m->options->map(fn (ProductOption $o) => ['id' => $o->id, 'name' => $o->name, 'price' => $price(PriceListItem::OPTION, $o->id)])->values(),
-            ])->values(),
-        ])->filter(fn ($line) => count($line['models']) > 0)->values()->all();
+        return ProductLine::with(['models.options'])
+            ->when($lineIds !== null, fn ($q) => $q->whereIn('id', $lineIds))
+            ->orderBy('name')->get()->map(fn (ProductLine $line) => [
+                'id' => $line->id,
+                'name' => $line->name,
+                'models' => $line->models->map(fn ($m) => [
+                    'id' => $m->id,
+                    'name' => $m->name,
+                    'category' => $m->category,
+                    'price' => $price(PriceListItem::MODEL, $m->id),
+                    'options' => $m->options->map(fn (ProductOption $o) => ['id' => $o->id, 'name' => $o->name, 'price' => $price(PriceListItem::OPTION, $o->id)])->values(),
+                ])->values(),
+            ])->filter(fn ($line) => count($line['models']) > 0)->values()->all();
     }
 
     private static function rules(?int $ignoreId = null): array

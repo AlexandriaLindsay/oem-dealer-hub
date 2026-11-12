@@ -32,7 +32,7 @@ final class Plan
                 'price_lists' => 1,
             ],
             // Pro-only features (Features::LIST keys).
-            'excludes' => ['broadcasts', 'usage_analytics', 'territories', 'custom_branding', 'erp_integration'],
+            'excludes' => ['broadcasts', 'usage_analytics', 'territories', 'custom_branding', 'custom_domain', 'erp_integration'],
         ],
         self::PRO => [
             'label' => 'Pro',

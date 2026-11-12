@@ -6,7 +6,7 @@ use App\Tenancy\BelongsToManufacturer;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * How many times one person opened one area of DealerDock on one day - the
+ * How many times one person opened one area of OEM Dealer Hub on one day - the
  * whole of what the usage report is built from. Tenant-owned. Deleted after
  * 13 months (usage:prune). What's kept is described in the privacy policy.
  */
@@ -19,7 +19,7 @@ class UsageDay extends Model
      * page's address), each with the feature that puts it in the person's
      * menu. A visit only counts if the person can use that area, so the
      * report never shows someone "using" a page they can't open. Staff,
-     * settings, billing and this report aren't "using DealerDock".
+     * settings, billing and this report aren't "using OEM Dealer Hub".
      */
     public const AREAS = [
         'dashboard' => 'dashboard',

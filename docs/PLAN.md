@@ -1,6 +1,6 @@
-# DealerDock - product and architecture plan
+# OEM Dealer Hub - product and architecture plan
 
-**DealerDock** is a self-serve dealer platform and dealer network for equipment manufacturers. A manufacturer signs up, invites its dealers, and runs inventory, registrations, pricing, quotes, parts and documents in one place. Plans are **Starter at $49/month** (up to 10 dealers) and **Pro at $99/month** (unlimited dealers). ERP integration is sold separately, **by quote after a meeting**.
+**OEM Dealer Hub** is a self-serve dealer platform and dealer network for equipment manufacturers. A manufacturer signs up, invites its dealers, and runs inventory, registrations, pricing, quotes, parts and documents in one place. Plans are **Starter at $49/month** (up to 10 dealers) and **Pro at $99/month** (unlimited dealers). ERP integration is sold separately, **by quote after a meeting**.
 
 This is a new codebase. It reuses lessons, patterns and designs from building a dealer portal before. It does not reuse that portal's code, data, ERP specifics or credentials.
 
@@ -15,15 +15,15 @@ This is a new codebase. It reuses lessons, patterns and designs from building a 
 | **Manufacturer** (the paying tenant) | Set up product lines, price lists and territories. Invite dealers. Approve registrations. See every dealer's fleet. Send announcements. |
 | **Manufacturer staff** | The same tools, limited by role: sales rep, inside sales, warranty, finance, parts. |
 | **Dealer** (free to the dealer) | See their machines and change their status. Register sales and rentals. Browse pricing, build quotes, order parts, read manuals. |
-| **DealerDock staff** | Support, billing, tenant health. |
+| **OEM Dealer Hub staff** | Support, billing, tenant health. |
 
 ### The "network" part
 
 A dealer often carries several manufacturers' brands. The portal hit this with dealers that had two accounts, one per brand.
 
-- In DealerDock, a **dealer organization and its users are global**. One login works across every manufacturer the dealer is linked to, with a brand switcher.
+- In OEM Dealer Hub, a **dealer organization and its users are global**. One login works across every manufacturer the dealer is linked to, with a brand switcher.
 - **Each manufacturer only sees its own relationship** with the dealer: its machines, registrations, prices and territory. It never sees another manufacturer's data.
-- Later, a **public dealer locator** per manufacturer ("find a dealer near you"), and a directory where manufacturers can invite dealers who are already on DealerDock.
+- Later, a **public dealer locator** per manufacturer ("find a dealer near you"), and a directory where manufacturers can invite dealers who are already on OEM Dealer Hub.
 
 ### Modules (from the portal's feature list)
 
@@ -56,7 +56,7 @@ Manufacturers pay; **dealers are always free**, because they're the network. Cha
 | Inventory, fleet report, registrations, manuals, quotes | Yes | Yes | - |
 | Price lists | 1 | Unlimited | - |
 | Broadcasts, usage analytics, territories | - | Yes | - |
-| Own subdomain and branding | DealerDock subdomain, logo only | Own subdomain, logo and colours | - |
+| Own subdomain and branding | OEM Dealer Hub subdomain, logo only | Own subdomain, logo and colours | - |
 | ERP connector | - | Available as add-on | Setup fee + monthly, per connector |
 
 - **14-day free trial** of Pro, no card needed to start. At the end of the trial the manufacturer picks a plan.
@@ -72,7 +72,7 @@ Manufacturers pay; **dealers are always free**, because they're the network. Cha
 
 ### Stack
 
-- **Backend:** Laravel 12 (API + Filament for the DealerDock staff console).
+- **Backend:** Laravel 12 (API + Filament for the OEM Dealer Hub staff console).
 - **Frontend:** React + TypeScript + Vite single-page app. The same frontend is used by manufacturers and dealers, and shows modules by role and feature.
 - **Database:** MySQL 8. Redis for cache and queues once there's real traffic. Until then, database queues.
 - **Files:** object storage (Azure Blob or S3) from day one, never the web server's disk. The portal's move to a mounted share was needed precisely because uploads lived on the app server.
@@ -84,7 +84,7 @@ Manufacturers pay; **dealers are always free**, because they're the network. Cha
 - **Dealer orgs are global.** A `dealer_links` table connects a dealer to a manufacturer, with that manufacturer's own dealer code, price list, territory and status. Most tenant data hangs off the link, not the dealer.
 - **Tests guard the boundary.** Each module has a test that signs in as manufacturer A and checks nothing from manufacturer B can be read or written, by ID, search, export or report.
 - **Queued jobs and scheduled commands** set the tenant explicitly. They never rely on "whoever is signed in". The portal's ERP session crossover, where one login reached the wrong company, is the warning.
-- Subdomain per manufacturer (`acme.dealerdock.app`) for branding. The app also works from the main domain with a brand switcher.
+- Subdomain per manufacturer (e.g. `acme.` on the product domain) for branding. The app also works from the main domain with a brand switcher.
 
 ### Roles and feature access
 
@@ -135,7 +135,7 @@ New for SaaS:
 
 ## 5. ERP integration (the paid add-on)
 
-The portal's Genius integration taught most of this. The design goal: **DealerDock's own data is the source of truth for the app, and a connector syncs it with the ERP.** The app never depends on the ERP being reachable.
+The portal's Genius integration taught most of this. The design goal: **OEM Dealer Hub's own data is the source of truth for the app, and a connector syncs it with the ERP.** The app never depends on the ERP being reachable.
 
 ### Connector interface
 
@@ -190,6 +190,6 @@ Request form → discovery meeting → fixed quote (setup + monthly) → connect
 1. Starter limits: are 10 dealers, 3 staff users and 10 GB right for $49?
 2. Is there a first pilot manufacturer? It decides which ERP connector comes first.
 3. Currencies and countries: USD and CAD from the start? Tax handling (Stripe Tax)?
-4. Domain: is `dealerdock` available (`.com` / `.app` / `.io`) and as a trademark?
+4. Domain: is a domain for "OEM Dealer Hub" available (`.com` / `.app` / `.io`), and is the name clear as a trademark? (Renamed from DealerDock on 2026-11-11.)
 5. Hosting budget for year one.
-6. Ownership: confirm with KA Group that DealerDock is yours to build and sell, since it grew out of work for them.
+6. Ownership: confirm with KA Group that OEM Dealer Hub is yours to build and sell, since it grew out of work for them.

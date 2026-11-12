@@ -7,6 +7,7 @@ use App\Models\DealerLink;
 use App\Models\Manufacturer;
 use App\Models\Membership;
 use App\Models\PriceList;
+use App\Models\Quote;
 use App\Models\Territory;
 use App\Models\User;
 use App\Support\Plan;
@@ -142,7 +143,13 @@ class TerritoryTest extends TestCase
     {
         // Quotes need prices to quote from.
         Tenant::run($this->acme, fn () => PriceList::create(['name' => 'Retail', 'currency' => 'USD'])->forceFill(['is_default' => true])->save());
-        $quote = fn (Dealer $d) => $this->actingAs($this->dealerUser($d))->postJson('/api/m/acme/quotes', ['customer' => ['contact_name' => 'Customer of '.$d->name]])->assertCreated()->json('id');
+        // Sent, since manufacturer staff never see a dealer's drafts.
+        $quote = function (Dealer $d) {
+            $id = $this->actingAs($this->dealerUser($d))->postJson('/api/m/acme/quotes', ['customer' => ['contact_name' => 'Customer of '.$d->name]])->assertCreated()->json('id');
+            Quote::withoutTenant()->find($id)->forceFill(['status' => Quote::SENT])->save();
+
+            return $id;
+        };
         $order = fn (Dealer $d) => $this->actingAs($this->dealerUser($d))->postJson('/api/m/acme/parts-orders', ['ship_method' => 'pickup', 'lines' => [['part_number' => 'P-1', 'quantity' => 1]]])->assertCreated()->json('id');
         $quote($this->prairie);
         $theirQuote = $quote($this->northern);
@@ -153,6 +160,12 @@ class TerritoryTest extends TestCase
 
         $this->actingAs($this->rep)->getJson('/api/m/acme/quotes')->assertJsonPath('total', 1);
         $this->actingAs($this->rep)->getJson("/api/m/acme/quotes/{$theirQuote}")->assertNotFound();
+        $this->actingAs($this->rep)->postJson("/api/m/acme/quotes/{$theirQuote}/outcome", ['status' => 'won'])->assertNotFound();
+        // The owner wins it; the order it becomes stays outside the rep's view too.
+        $theirSalesOrder = $this->actingAs($this->owner)->postJson("/api/m/acme/quotes/{$theirQuote}/outcome", ['status' => 'won'])->assertOk()->json('sales_order.id');
+        $this->actingAs($this->rep)->getJson('/api/m/acme/sales-orders')->assertJsonPath('total', 0);
+        $this->actingAs($this->rep)->getJson("/api/m/acme/sales-orders/{$theirSalesOrder}")->assertNotFound();
+        $this->actingAs($this->owner)->getJson('/api/m/acme/sales-orders')->assertJsonPath('total', 1);
         $this->actingAs($inside)->getJson('/api/m/acme/parts-orders')->assertJsonPath('total', 1);
         $this->actingAs($inside)->getJson("/api/m/acme/parts-orders/{$theirOrder}")->assertNotFound();
         $this->actingAs($this->rep)->getJson('/api/m/acme/registrations')->assertOk();

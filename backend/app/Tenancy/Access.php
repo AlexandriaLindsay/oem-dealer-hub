@@ -79,6 +79,9 @@ final class Access
             'plan' => $m->plan,
             'trial_ends_at' => $m->trial_ends_at?->toIso8601String(),
             'logo_url' => $m->logoUrl(),
+            // Their own colour (Pro), shown to staff and dealers alike; null: OEM Dealer Hub's blue.
+            // Kept on a downgrade, just not shown, so it comes back with Pro.
+            'brand_color' => Plan::includes($m, 'custom_branding') ? $m->brand_color : null,
             // trialing | active | past_due | lapsed (Plan::standing) - the app pauses a lapsed account.
             'standing' => Plan::standing($m),
             'acting_as' => $context['link'] ? 'dealer' : 'manufacturer',

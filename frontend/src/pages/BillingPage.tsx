@@ -10,7 +10,7 @@ import { Loading } from '../components/AddForm'
 type Interval = 'monthly' | 'annual'
 
 function asApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
+  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' })
 }
 
 const limitText = (n: number | null, unit: string) => (n === null ? `Unlimited ${unit}` : `Up to ${n} ${unit}`)
@@ -79,7 +79,7 @@ export function BillingPage() {
   return (
     <>
       <h1>Plan and billing</h1>
-      <p className="lede">The DealerDock plan for {current?.name}. Dealers are always free.</p>
+      <p className="lede">The OEM Dealer Hub plan for {current?.name}. Dealers are always free.</p>
 
       {returning === 'cancelled' && (
         <div className="callout" role="status">
@@ -107,7 +107,7 @@ export function BillingPage() {
         <section className="panel">
           <h2>Billed by invoice</h2>
           <p className="muted">
-            Your {data.plan === 'pro' ? 'Pro' : 'Starter'} plan is billed outside the app. To change it, contact DealerDock.
+            Your {data.plan === 'pro' ? 'Pro' : 'Starter'} plan is billed outside the app. To change it, contact OEM Dealer Hub.
           </p>
         </section>
       ) : (

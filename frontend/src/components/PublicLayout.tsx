@@ -15,13 +15,13 @@ export function PublicLayout({ children }: { children: ReactNode }) {
       <header className="public-header">
         <Link to="/" className="brand">
           <img src="/favicon.svg" alt="" width={26} height={26} />
-          <span>DealerDock</span>
+          <span>OEM Dealer Hub</span>
         </Link>
         <nav aria-label="Site">
           <NavLink to="/pricing">Pricing</NavLink>
           {me ? (
             <Link to="/" className="button-primary">
-              Open DealerDock
+              Open OEM Dealer Hub
             </Link>
           ) : (
             <>
@@ -43,7 +43,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           {email && <a href={`mailto:${email}`}>{email}</a>}
         </nav>
         <p className="muted small">
-          © {new Date().getFullYear()} {company ?? 'DealerDock'}
+          © {new Date().getFullYear()} {company ?? 'OEM Dealer Hub'}
         </p>
       </footer>
     </div>

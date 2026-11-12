@@ -8,7 +8,7 @@ import { useCurrentManufacturer } from '../components/Layout'
 type Mode = 'add' | 'add_update'
 
 function asApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
+  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' })
 }
 
 const fmt = new Intl.NumberFormat()
@@ -139,7 +139,7 @@ export function ImportPage() {
             {error?.field('file') ? <p className="field-error">{error.field('file')}</p> : <p className="hint">Up to 5,000 machines and 5 MB. Only the first sheet of an Excel file is read.</p>}
           </div>
           <fieldset className="choice">
-            <legend>Machines already in DealerDock</legend>
+            <legend>Machines already in OEM Dealer Hub</legend>
             <label className="check">
               <input type="radio" name="mode" checked={mode === 'add'} onChange={() => {
                   setMode('add')
@@ -171,13 +171,13 @@ export function ImportPage() {
           <SummaryTiles summary={preview.summary} />
           {preview.columns.ignored.length > 0 && (
             <p className="hint">
-              Ignored columns (not used by DealerDock): {preview.columns.ignored.join(', ')}.
+              Ignored columns (not used by OEM Dealer Hub): {preview.columns.ignored.join(', ')}.
             </p>
           )}
 
           <RowTable title="Problems - these rows won't be imported" rows={preview.rows.filter((r) => r.action === 'error')} />
           <RowTable title="Changes to existing machines" rows={preview.rows.filter((r) => r.action === 'update')} />
-          <RowTable title="Skipped - already in DealerDock" rows={preview.rows.filter((r) => r.action === 'skip')} collapsed />
+          <RowTable title="Skipped - already in OEM Dealer Hub" rows={preview.rows.filter((r) => r.action === 'skip')} collapsed />
           <RowTable title="New machines" rows={preview.rows.filter((r) => r.action === 'create')} collapsed />
 
           <div className="form-actions import-go">

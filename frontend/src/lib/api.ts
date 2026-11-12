@@ -84,6 +84,8 @@ export interface ManufacturerAccess {
   trial_ends_at: string | null
   /** The manufacturer's logo (an API path with a version), or null. */
   logo_url: string | null
+  /** Their own colour (Pro), "#rrggbb"; null = OEM Dealer Hub blue. */
+  brand_color: string | null
   /** Where the account stands (App\Support\Plan::standing): a lapsed account is paused. */
   standing: 'trialing' | 'active' | 'past_due' | 'lapsed'
   acting_as: 'manufacturer' | 'dealer'
@@ -105,6 +107,8 @@ export interface Me {
     tours_seen: string[]
     /** The version of the terms they agreed to (null: not yet). */
     terms_version: string | null
+    /** The staff console, for OEM Dealer Hub's own people only (null for everyone else). */
+    console_url: string | null
   }
   manufacturers: ManufacturerAccess[]
   /** The current version of the terms; the app asks again when it differs from the user's. */
@@ -136,6 +140,10 @@ export interface MachineRow {
   built_at: string | null
   shipped_at: string | null
   updated_at: string | null
+  /** Days waiting to sell where it is; null once sold or rented out. */
+  days_in_stock: number | null
+  /** The last time its dealer confirmed it on their lot (a stock check). */
+  confirmed_at: string | null
 }
 
 export interface MachineDetail extends MachineRow {
@@ -158,6 +166,8 @@ export interface DealerRow {
   price_list_id: number | null
   /** The territory it's in; null = none. */
   territory: { id: number; name: string } | null
+  /** The product lines it carries; empty = every line. */
+  product_line_ids: number[]
   status: string
   city: string | null
   region: string | null
@@ -177,6 +187,8 @@ export interface FleetSummary {
   by_status: Record<MachineStatus, number>
   by_dealer: { id: number | null; name: string; total: number; statuses: Record<MachineStatus, number> }[]
   by_model: { id: number; name: string; line: string; total: number; statuses: Record<MachineStatus, number> }[]
+  /** Unsold machines by how long they've been sitting, per dealer (oldest stock first). */
+  aging: { bands: string[]; totals: number[]; by_dealer: { id: number | null; name: string; counts: number[]; total: number; oldest_days: number }[] }
 }
 
 /**
@@ -343,6 +355,8 @@ export interface CatalogLine {
 
 export interface PriceListDetail extends PriceListSummary {
   lines: CatalogLine[]
+  /** Prices come from their ERP (Integrations): shown, not edited here. */
+  prices_from_erp?: boolean
 }
 
 export interface Catalog {
@@ -398,6 +412,58 @@ export interface QuoteDetail extends QuoteRow {
   lines: QuoteLineData[]
   can_edit: boolean
   can_change_status: boolean
+  /** The manufacturer can mark this sent quote won or lost. */
+  can_close: boolean
+  /** The order a won quote became (staff who can see sales orders only). */
+  sales_order: { id: number; number: string; status: SalesOrderStatus } | null
+}
+
+export type SalesOrderStatus = 'received' | 'in_production' | 'shipped' | 'delivered' | 'cancelled'
+
+export interface SalesOrderRow {
+  id: number
+  number: string
+  status: SalesOrderStatus
+  customer: QuoteCustomer
+  currency: 'USD' | 'CAD'
+  total: string
+  dealer: string
+  /** The quote it came from ("Q-1001"). */
+  quote: string | null
+  po_number: string | null
+  requested_date: string | null
+  /** The order's number in the manufacturer's ERP, once entered there. */
+  erp_ref: string | null
+  lines_count: number
+  created_at: string | null
+  shipped_at: string | null
+}
+
+export interface SalesOrderDetail extends SalesOrderRow {
+  quote_id: number
+  subtotal: string
+  discount: string
+  notes: string | null
+  cancel_reason: string | null
+  created_by: string | null
+  handled_by: string | null
+  started_at: string | null
+  delivered_at: string | null
+  cancelled_at: string | null
+  lines: { kind: 'model' | 'option' | 'custom'; description: string; quantity: number; unit_price: string; line_total: string }[]
+  /** Where it can go next (empty unless this person works sales orders). */
+  next: SalesOrderStatus[]
+  can_edit: boolean
+  status_from_erp: boolean
+}
+
+export interface SalesOrderPage {
+  data: SalesOrderRow[]
+  total: number
+  page: number
+  last_page: number
+  /** Their ERP moves orders (Integrations): no move buttons here. */
+  status_from_erp: boolean
 }
 
 export interface QuotePage {
@@ -481,7 +547,7 @@ export interface Announcement {
   read: boolean
 }
 
-/** GET /m/{slug}/usage - which dealers use DealerDock, from per-person daily counts (Pro). */
+/** GET /m/{slug}/usage - which dealers use OEM Dealer Hub, from per-person daily counts (Pro). */
 export interface UsageReport {
   days: 30 | 90
   from: string

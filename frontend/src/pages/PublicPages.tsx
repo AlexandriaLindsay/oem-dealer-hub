@@ -6,7 +6,7 @@ import { PublicLayout } from '../components/PublicLayout'
 /*
  * The public landing and pricing pages. Every price, limit and trial length
  * comes from GET /api/site (App\Support\Plan), so these pages can't drift
- * from what's actually billed. Copy describes only what DealerDock does today.
+ * from what's actually billed. Copy describes only what OEM Dealer Hub does today.
  */
 
 const FEATURES: [string, string][] = [
@@ -67,7 +67,7 @@ export function LandingPage() {
         <h2>Dealers are always free</h2>
         <p>Your dealers are your network - charging them would only slow it down. Invite as many as your plan includes; they never see a bill.</p>
         <p>
-          Run an ERP? Integration with it is quoted separately, after a conversation about how your data flows. <Link to="/pricing">More on pricing</Link>
+          Run an ERP? On Pro, your IT team can connect it themselves with API keys and webhooks. If you'd rather we set it up, that's quoted separately. <Link to="/pricing">More on pricing</Link>
         </p>
       </section>
     </PublicLayout>
@@ -104,7 +104,7 @@ export function PricingPage() {
         <h3>Do dealers pay?</h3>
         <p>Never.</p>
         <h3>ERP integration?</h3>
-        <p>It's on the way, for Pro. It'll be quoted separately, after a conversation about your ERP and how your data should flow.</p>
+        <p>Pro includes API keys and signed webhooks, so your IT team (or a tool like Power Automate or Make) can connect your ERP themselves. New sales orders reach your ERP the moment a quote is won. If you'd like us to do the setup and mapping, that's quoted separately, after a conversation about how your data should flow.</p>
       </section>
     </PublicLayout>
   )

@@ -186,7 +186,7 @@ class MachineImportTest extends TestCase
 
         $this->send('preview', "Serial,Model\nAS4-1,R-200\n", MachineImporter::ADD_UPDATE)
             ->assertJsonPath('rows.0.action', 'error')
-            ->assertJsonPath('rows.0.messages.0', 'In DealerDock this machine\'s model is S-400, but the file says R-200. An import doesn\'t change a machine\'s model.');
+            ->assertJsonPath('rows.0.messages.0', 'In OEM Dealer Hub this machine\'s model is S-400, but the file says R-200. An import doesn\'t change a machine\'s model.');
     }
 
     public function test_excels_own_csv_windows_1252_and_semicolons(): void

@@ -113,7 +113,7 @@ class QuoteTest extends TestCase
             ->assertJsonPath('number', 'Q-1001');
     }
 
-    public function test_a_sent_quote_is_locked_and_can_be_reopened_won_or_copied(): void
+    public function test_a_sent_quote_is_locked_and_can_be_reopened_or_copied(): void
     {
         $id = $this->quote([['kind' => 'model', 'item_id' => $this->s400->id, 'quantity' => 1]])->json('id');
 
@@ -124,8 +124,10 @@ class QuoteTest extends TestCase
 
         $this->moveTo($id, 'draft')->assertOk()->assertJsonPath('can_edit', true);
         $this->moveTo($id, 'sent');
-        $this->moveTo($id, 'won')->assertOk()->assertJsonPath('status', 'won');
-        $this->moveTo($id, 'lost')->assertUnprocessable()->assertJsonValidationErrors(['status' => 'A won quote can\'t be marked lost']);
+        // Won or lost is the manufacturer's call.
+        $this->moveTo($id, 'won')->assertUnprocessable()->assertJsonValidationErrors(['status' => 'marks quotes won or lost']);
+        $this->actingAs($this->dealerUser)->postJson("/api/m/acme/quotes/{$id}/outcome", ['status' => 'won'])->assertForbidden();
+        $this->assertSame('sent', Quote::withoutTenant()->find($id)->status);
 
         $this->actingAs($this->dealerUser)->postJson("/api/m/acme/quotes/{$id}/copy")
             ->assertCreated()->assertJsonPath('number', 'Q-1002')->assertJsonPath('status', 'draft')->assertJsonPath('lines.0.description', 'S-400');
@@ -156,17 +158,49 @@ class QuoteTest extends TestCase
         $this->actingAs($this->dealerUser)->postJson("/api/m/acme/quotes/{$custom}/copy")->assertJsonPath('total', '45000.00');
     }
 
-    public function test_sales_staff_read_every_dealers_quotes_but_cant_change_them(): void
+    public function test_sales_staff_read_every_dealers_sent_quotes_but_cant_change_them(): void
     {
         $id = $this->quote([['kind' => 'model', 'item_id' => $this->s400->id, 'quantity' => 1]])->json('id');
         $rep = $this->staff($this->acme, 'sales_rep');
 
+        // A dealer's draft is theirs alone.
+        $this->actingAs($rep)->getJson('/api/m/acme/quotes')->assertOk()->assertJsonPath('total', 0);
+        $this->actingAs($rep)->getJson("/api/m/acme/quotes/{$id}")->assertNotFound();
+
+        $this->moveTo($id, 'sent')->assertOk();
         $this->actingAs($rep)->getJson('/api/m/acme/quotes')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.dealer', 'Prairie Equipment');
-        $this->actingAs($rep)->getJson("/api/m/acme/quotes/{$id}")->assertOk()->assertJsonPath('can_edit', false);
+        $this->actingAs($rep)->getJson('/api/m/acme/quotes?status=draft')->assertUnprocessable();
+        $this->actingAs($rep)->getJson("/api/m/acme/quotes/{$id}")->assertOk()->assertJsonPath('can_edit', false)->assertJsonPath('can_close', true);
         $this->actingAs($rep)->postJson('/api/m/acme/quotes', ['customer' => ['contact_name' => 'X']])->assertForbidden();
         $this->actingAs($rep)->postJson("/api/m/acme/quotes/{$id}/status", ['status' => 'sent'])->assertForbidden();
         // Warranty and parts staff don't see quotes at all.
         $this->actingAs($this->staff($this->acme, 'warranty'))->getJson('/api/m/acme/quotes')->assertForbidden();
+    }
+
+    public function test_the_manufacturer_closes_a_sent_quote_and_it_leaves_the_dealers_view(): void
+    {
+        $id = $this->quote([['kind' => 'model', 'item_id' => $this->s400->id, 'quantity' => 1]])->json('id');
+        $owner = $this->staff($this->acme, 'owner');
+        $close = fn (User $who, string $status) => $this->actingAs($who)->postJson("/api/m/acme/quotes/{$id}/outcome", ['status' => $status]);
+
+        // A draft isn't the manufacturer's to see, let alone close.
+        $close($owner, 'won')->assertNotFound();
+
+        $this->moveTo($id, 'sent');
+        $close($owner, 'sent')->assertUnprocessable()->assertJsonValidationErrors('status');
+        $close($this->staff($this->acme, 'warranty'), 'won')->assertForbidden();
+        $close($owner, 'won')->assertOk()->assertJsonPath('status', 'won')->assertJsonPath('can_close', false);
+        $this->assertNotNull(Quote::withoutTenant()->find($id)->decided_at);
+
+        // Final: not closed twice, not reopened by the dealer.
+        $close($owner, 'lost')->assertUnprocessable()->assertJsonValidationErrors(['status' => 'already marked won']);
+
+        // Gone from the dealer's view; still in the manufacturer's.
+        $this->actingAs($this->dealerUser)->getJson('/api/m/acme/quotes')->assertJsonPath('total', 0);
+        $this->actingAs($this->dealerUser)->getJson("/api/m/acme/quotes/{$id}")->assertNotFound();
+        $this->moveTo($id, 'draft')->assertNotFound();
+        $this->actingAs($this->dealerUser)->postJson("/api/m/acme/quotes/{$id}/copy")->assertNotFound();
+        $this->actingAs($owner)->getJson('/api/m/acme/quotes?status=won')->assertJsonPath('total', 1);
     }
 
     public function test_search_by_customer_or_number(): void

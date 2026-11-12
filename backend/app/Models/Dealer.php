@@ -18,6 +18,16 @@ class Dealer extends Model
 
     protected $fillable = ['name', 'city', 'region', 'country', 'phone', 'website'];
 
+    /**
+     * The manufacturers it carries, one link each. DealerLink is tenant-owned,
+     * so this needs a current manufacturer; only the staff console lifts the
+     * scopes to see every link.
+     */
+    public function links(): HasMany
+    {
+        return $this->hasMany(DealerLink::class);
+    }
+
     /** Its people (memberships with org_type dealer). */
     public function members(): HasMany
     {

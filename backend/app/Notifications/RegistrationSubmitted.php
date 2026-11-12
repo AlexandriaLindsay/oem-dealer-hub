@@ -40,8 +40,8 @@ class RegistrationSubmitted extends Notification
         return (new MailMessage)
             ->subject("New {$d['type']} registration: {$d['model']} {$d['serial']}")
             ->line("{$d['dealer']} registered {$d['model']} serial {$d['serial']} as a {$d['type']}.")
-            ->line('It\'s waiting for your review in DealerDock.')
+            ->line('It\'s waiting for your review in OEM Dealer Hub.')
             ->action('Review the registration', $d['url'])
-            ->salutation("DealerDock, for {$d['manufacturer']}");
+            ->salutation("OEM Dealer Hub, for {$d['manufacturer']}");
     }
 }

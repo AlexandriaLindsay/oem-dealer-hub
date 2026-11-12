@@ -75,7 +75,7 @@ class BillingTest extends TestCase
             ->assertStatus(402)->assertJsonPath('can_manage_billing', false);
         $this->actingAs($dealerUser)->getJson('/api/m/acme/machines')
             ->assertStatus(402)
-            ->assertJsonPath('message', 'The DealerDock account for Acme Manufacturing is paused. Nothing has been deleted; it\'ll be back as soon as Acme Manufacturing chooses a plan.');
+            ->assertJsonPath('message', 'The OEM Dealer Hub account for Acme Manufacturing is paused. Nothing has been deleted; it\'ll be back as soon as Acme Manufacturing chooses a plan.');
 
         $this->actingAs($this->owner)->getJson('/api/m/acme/billing')->assertOk()->assertJsonPath('standing', 'lapsed');
         $this->actingAs($this->owner)->postJson('/api/m/acme/billing/checkout', ['plan' => 'pro', 'interval' => 'monthly'])->assertOk();
@@ -247,7 +247,7 @@ class BillingTest extends TestCase
         $this->actingAs($this->owner)->getJson('/api/m/acme/dashboard')->assertJsonPath('usage.dealers.used', 10);
     }
 
-    /** A Stripe subscription event for the one-price subscriptions DealerDock uses. */
+    /** A Stripe subscription event for the one-price subscriptions OEM Dealer Hub uses. */
     private function webhook(string $type, string $price, string $status, string $customer = 'cus_acme'): TestResponse
     {
         return $this->postJson('/stripe/webhook', [

@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * The usage report (Pro): which dealers use DealerDock, how much, and for
+ * The usage report (Pro): which dealers use OEM Dealer Hub, how much, and for
  * what - including the dealers who don't use it at all, often the most
  * useful line for a sales team. Built from per-person daily visit counts.
  */

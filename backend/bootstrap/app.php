@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\RequireCurrentTerms;
 use App\Http\Middleware\RequireFeature;
 use App\Http\Middleware\RequireGoodStanding;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature' => RequireFeature::class,
             'standing' => RequireGoodStanding::class,
             'terms' => RequireCurrentTerms::class,
+            'api-key' => AuthenticateApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -33,6 +33,7 @@ class Machine extends Model
         return [
             'built_at' => 'date',
             'shipped_at' => 'date',
+            'confirmed_at' => 'datetime',
         ];
     }
 
@@ -67,7 +68,45 @@ class Machine extends Model
             // A dealer link id, or "none" for machines still at the manufacturer.
             'dealer' => ['nullable', 'string', 'max:20'],
             'q' => ['nullable', 'string', 'max:80'],
+            // Unsold, and sitting at least this many days (daysInStock).
+            'aged' => ['nullable', 'integer', 'min:1', 'max:3650'],
         ];
+    }
+
+    /**
+     * Stock waiting to sell: on a dealer's lot (or the factory floor) as new
+     * inventory, a demo, or a used unit. What "aging" counts - a rental is
+     * earning, and a sold machine is done.
+     */
+    public const UNSOLD = ['inventory', 'demo', 'used'];
+
+    /** The aging report's bands, in days: [from, to (null: no end), label]. */
+    public const AGE_BANDS = [
+        [0, 90, '0–90 days'],
+        [91, 180, '91–180 days'],
+        [181, 365, '181–365 days'],
+        [366, null, 'Over a year'],
+    ];
+
+    /**
+     * Days since it arrived where it is now - shipped to a dealer, or built
+     * at the factory (the day it was added, when that date isn't known).
+     * Null once it isn't stock waiting to sell.
+     */
+    public function daysInStock(): ?int
+    {
+        if (! in_array($this->status, self::UNSOLD, true)) {
+            return null;
+        }
+        $since = ($this->dealer_link_id ? $this->shipped_at : $this->built_at) ?? $this->created_at;
+
+        return $since ? (int) $since->copy()->startOfDay()->diffInDays(now()->startOfDay()) : null;
+    }
+
+    /** The SQL twin of daysInStock()'s start date, for filtering and the report. */
+    public static function stockSinceSql(): string
+    {
+        return 'case when dealer_link_id is null then coalesce(built_at, date(created_at)) else coalesce(shipped_at, date(created_at)) end';
     }
 
     /**
@@ -87,7 +126,9 @@ class Machine extends Model
             ->when($filters['q'] ?? null, function ($q, $search) {
                 $like = '%'.addcslashes($search, '%_\\').'%';
                 $q->where(fn ($w) => $w->where('serial_no', 'like', $like)->orWhere('production_no', 'like', $like));
-            });
+            })
+            ->when($filters['aged'] ?? null, fn ($q, $days) => $q->whereIn('status', self::UNSOLD)
+                ->whereRaw(self::stockSinceSql().' <= ?', [now()->subDays((int) $days)->toDateString()]));
     }
 
     /**

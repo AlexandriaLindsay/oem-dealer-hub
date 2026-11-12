@@ -1,6 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api, ApiError, type PartsOrderDetail, type PartsOrderPage, type PartsOrderStatus } from '../lib/api'
+import { Package, Truck } from 'lucide-react'
+import { api, ApiError, type PartsOrderDetail, type PartsOrderPage, type PartsOrderRow, type PartsOrderStatus } from '../lib/api'
+import { Board, ViewSwitch, type BoardColumn, type BoardTone } from '../components/Board'
 import { useApi } from '../lib/useApi'
 import { formatDate, formatDateTime, useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
@@ -8,7 +10,7 @@ import { Loading } from '../components/AddForm'
 import { Field, FormError } from '../components/Form'
 
 function asApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
+  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' })
 }
 
 const STATUS_LABEL: Record<PartsOrderStatus, string> = { submitted: 'Submitted', in_progress: 'Being prepared', shipped: 'Shipped', cancelled: 'Cancelled' }
@@ -27,13 +29,22 @@ export function PartsOrdersPage() {
   const canOrder = !!current?.features.includes('order_parts')
   const isDesk = !!current?.features.includes('manage_parts_orders')
   const [params, setParams] = useSearchParams()
+  // The board by default: a column per status. The list (with tabs) is a click away.
+  const view = params.get('view') === 'list' ? 'list' : 'board'
   // The parts desk starts on its to-do list; dealers on everything they've ordered.
   const status = params.get('status') ?? (isDesk ? 'open' : '')
   const q = params.get('q') ?? ''
   const query = new URLSearchParams()
   if (status) query.set('status', status)
   if (q) query.set('q', q)
-  const { data, error } = useApi<PartsOrderPage>(`/m/${slug}/parts-orders${query.size ? `?${query}` : ''}`)
+  const { data, error } = useApi<PartsOrderPage>(view === 'list' ? `/m/${slug}/parts-orders${query.size ? `?${query}` : ''}` : null)
+
+  function setView(v: 'list' | 'board') {
+    const next = new URLSearchParams()
+    if (v === 'list') next.set('view', 'list')
+    if (q) next.set('q', q)
+    setParams(next, { replace: true })
+  }
 
   const tabs: [string, string][] = [
     ['open', isDesk ? 'To do' : 'Open'],
@@ -60,14 +71,17 @@ export function PartsOrdersPage() {
             : 'Parts orders from your dealers.'}
       </p>
 
-      <div className="tabs" role="tablist" aria-label="Order status">
-        {tabs.map(([key, label]) => (
-          <button key={key || 'all'} role="tab" aria-selected={status === key} className={status === key ? 'is-on' : ''} onClick={() => setParams({ status: key }, { replace: true })}>
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="filters">
+      <div className="view-bar">
+        <ViewSwitch view={view} onChange={setView} />
+        {view === 'list' && (
+          <div className="tabs" role="tablist" aria-label="Order status">
+            {tabs.map(([key, label]) => (
+              <button key={key || 'all'} role="tab" aria-selected={status === key} className={status === key ? 'is-on' : ''} onClick={() => setParams({ view: 'list', status: key }, { replace: true })}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <form
           className="filter-search"
           role="search"
@@ -88,7 +102,9 @@ export function PartsOrdersPage() {
         </form>
       </div>
 
-      {!data ? (
+      {view === 'board' ? (
+        <PartsBoard slug={slug} q={q} isDesk={isDesk} canOrder={canOrder} isDealer={isDealer} />
+      ) : !data ? (
         <Loading error={error} />
       ) : data.total === 0 ? (
         <p className="muted">{q ? 'No orders match.' : status === 'open' ? 'Nothing waiting.' : 'No parts orders yet.'}</p>
@@ -129,6 +145,209 @@ export function PartsOrdersPage() {
         </div>
       )}
     </>
+  )
+}
+
+// ---- The board ----
+
+/** Where the parts desk can move an order from each status (PartsOrder::MOVES on the server). */
+const DESK_MOVES: Record<PartsOrderStatus, PartsOrderStatus[]> = {
+  submitted: ['in_progress', 'shipped', 'cancelled'],
+  in_progress: ['shipped', 'cancelled'],
+  shipped: [],
+  cancelled: [],
+}
+const COLUMNS: { key: PartsOrderStatus; title: string; tone: BoardTone }[] = [
+  { key: 'submitted', title: 'Submitted', tone: 'accent' },
+  { key: 'in_progress', title: 'Being prepared', tone: 'neutral' },
+  { key: 'shipped', title: 'Shipped', tone: 'ok' },
+  { key: 'cancelled', title: 'Cancelled', tone: 'danger' },
+]
+const MOVE_LABEL: Record<PartsOrderStatus, string> = { submitted: '', in_progress: 'Start', shipped: 'Ship…', cancelled: 'Cancel…' }
+
+/**
+ * Every order as a card in its status's column. The parts desk moves cards
+ * along (drag, or the buttons); shipping asks for the carrier and tracking
+ * number, cancelling for a reason the dealer sees. A dealer can take back an
+ * order the desk hasn't started.
+ */
+function PartsBoard({ slug, q, isDesk, canOrder, isDealer }: { slug: string; q: string; isDesk: boolean; canOrder: boolean; isDealer: boolean }) {
+  const path = (status: string) => `/m/${slug}/parts-orders?${new URLSearchParams(q ? { status, q } : { status })}`
+  const cols = {
+    submitted: useApi<PartsOrderPage>(path('submitted')),
+    in_progress: useApi<PartsOrderPage>(path('in_progress')),
+    shipped: useApi<PartsOrderPage>(path('shipped')),
+    cancelled: useApi<PartsOrderPage>(path('cancelled')),
+  }
+  const [moving, setMoving] = useState<{ order: PartsOrderRow; to: 'shipped' | 'cancelled' } | null>(null)
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const reloadAll = () => Promise.all(Object.values(cols).map((c) => c.reload()))
+
+  const movesFor = (o: PartsOrderRow): string[] => {
+    if (isDesk) return DESK_MOVES[o.status]
+    if (canOrder && o.status === 'submitted') return ['cancelled']
+    return []
+  }
+
+  async function move(o: PartsOrderRow, to: string) {
+    setError(null)
+    if (!isDesk) {
+      // The dealer taking an order back.
+      if (!window.confirm(`Cancel parts order ${o.number}?`)) return
+      return save(() => api.post(`/m/${slug}/parts-orders/${o.id}/cancel`))
+    }
+    if (to === 'shipped' || to === 'cancelled') return setMoving({ order: o, to })
+    return save(() => api.post(`/m/${slug}/parts-orders/${o.id}/status`, { status: to }))
+  }
+
+  async function save(call: () => Promise<unknown>) {
+    setBusy(true)
+    try {
+      await call()
+      setMoving(null)
+      await reloadAll()
+    } catch (e) {
+      setError(asApiError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const columns: BoardColumn<PartsOrderRow>[] = COLUMNS.map(({ key, title, tone }) => {
+    const c = cols[key]
+    // Waiting work oldest first, so the longest-waiting order is on top; finished work newest first.
+    const items = c.data ? (key === 'submitted' || key === 'in_progress' ? [...c.data.data].sort((a, b) => a.id - b.id) : c.data.data) : null
+    return {
+      key,
+      title,
+      tone,
+      items,
+      total: c.data?.total ?? 0,
+      error: c.error,
+      footer: c.data && c.data.total > c.data.data.length ? `Showing ${c.data.data.length} of ${c.data.total}. The list view has them all.` : undefined,
+    }
+  })
+
+  return (
+    <>
+      {error && !moving && (
+        <p className="form-error board-error" role="alert">
+          {error.field('status') ?? error.message}
+        </p>
+      )}
+      <Board
+        label="Parts orders by status"
+        columns={columns}
+        cardKey={(o) => o.id}
+        movesFor={movesFor}
+        onMove={move}
+        empty={q ? 'None match.' : 'None.'}
+        renderCard={(o) => (
+          <>
+            <div className="card-top">
+              <Link to={String(o.id)}>{o.number}</Link>
+              {o.ship_method === 'rush' && <span className="card-flag">Rush</span>}
+            </div>
+            {!isDealer && <span className="card-title">{o.dealer}</span>}
+            <div className="card-meta">
+              <span>
+                <Package size={14} aria-hidden /> {o.lines_count} line{o.lines_count === 1 ? '' : 's'}
+              </span>
+              {o.po_number && <span>PO {o.po_number}</span>}
+              {/* Rush already has its flag at the top. */}
+              {o.ship_method !== 'rush' && (
+                <span>
+                  <Truck size={14} aria-hidden /> {SHIP_LABEL[o.ship_method]}
+                </span>
+              )}
+              <span>{formatDate(o.status === 'shipped' ? o.shipped_at : o.created_at)}</span>
+            </div>
+            {movesFor(o).length > 0 && (
+              <div className="card-actions">
+                {movesFor(o).map((to) => (
+                  <button key={to} className={to === 'cancelled' ? 'is-danger' : undefined} disabled={busy} onClick={() => move(o, to)}>
+                    {isDesk ? MOVE_LABEL[to as PartsOrderStatus] : 'Cancel'}
+                    <span className="sr-only"> order {o.number}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      />
+      {moving && <MoveDialog order={moving.order} to={moving.to} busy={busy} error={error} onCancel={() => {
+            setMoving(null)
+            setError(null)
+          }} onSave={(body) => save(() => api.post(`/m/${slug}/parts-orders/${moving.order.id}/status`, { status: moving.to, ...body }))} />}
+    </>
+  )
+}
+
+/** The details shipping or cancelling needs, asked for in a small dialog over the board. */
+function MoveDialog({
+  order,
+  to,
+  busy,
+  error,
+  onCancel,
+  onSave,
+}: {
+  order: PartsOrderRow
+  to: 'shipped' | 'cancelled'
+  busy: boolean
+  error: ApiError | null
+  onCancel: () => void
+  onSave: (body: Record<string, string | null>) => void
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const d = ref.current
+    if (d && !d.open) d.showModal()
+  }, [])
+
+  return (
+    <dialog ref={ref} className="move-dialog" aria-labelledby="move-title" onCancel={(e) => {
+        e.preventDefault()
+        onCancel()
+      }}>
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault()
+          const f = new FormData(e.currentTarget)
+          const v = (k: string) => String(f.get(k) ?? '').trim() || null
+          onSave({ carrier: v('carrier'), tracking_number: v('tracking_number'), parts_note: v('parts_note') })
+        }}
+      >
+        <h2 id="move-title">
+          {to === 'shipped' ? 'Ship' : 'Cancel'} order {order.number}
+        </h2>
+        <p className="muted small">{order.dealer} gets an email with this.</p>
+        {error && !Object.keys(error.errors).length && <p className="form-error">{error.message}</p>}
+        {error?.field('status') && <p className="form-error">{error.field('status')}</p>}
+        {to === 'shipped' && (
+          <>
+            <Field label="Carrier" name="carrier" error={error} />
+            <Field label="Tracking number" name="tracking_number" error={error} />
+          </>
+        )}
+        <div className="field">
+          <label htmlFor="move-note">{to === 'cancelled' ? 'Why? (the dealer sees this)' : 'Note for the dealer (optional)'}</label>
+          <textarea id="move-note" name="parts_note" rows={2} maxLength={2000} aria-invalid={!!error?.field('parts_note')} />
+          {error?.field('parts_note') && <p className="field-error">{error.field('parts_note')}</p>}
+        </div>
+        <div className="form-actions">
+          <button className={to === 'cancelled' ? 'danger' : 'primary'} disabled={busy}>
+            {busy ? 'Saving…' : to === 'cancelled' ? 'Cancel the order' : 'Mark shipped'}
+          </button>
+          <button type="button" className="link" onClick={onCancel}>
+            Back
+          </button>
+        </div>
+      </form>
+    </dialog>
   )
 }
 

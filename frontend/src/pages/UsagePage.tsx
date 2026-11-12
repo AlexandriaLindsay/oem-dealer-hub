@@ -31,7 +31,7 @@ function Usage() {
         <div>
           <h1>Usage</h1>
           <p className="muted">
-            Which dealers use DealerDock, and for what. Pages opened, counted per person per day - never what was on them.
+            Which dealers use OEM Dealer Hub, and for what. Pages opened, counted per person per day - never what was on them.
           </p>
         </div>
         <div className="toggle" role="group" aria-label="Period: the last">
@@ -67,7 +67,7 @@ function Usage() {
             {formatDate(data.from)} to today
           </p>
 
-          <ChartCard title="Dealers using DealerDock each day" table={<DailyTable daily={data.daily} />}>
+          <ChartCard title="Dealers using OEM Dealer Hub each day" table={<DailyTable daily={data.daily} />}>
             <DailyColumns daily={data.daily} />
           </ChartCard>
 
@@ -104,11 +104,11 @@ function DailyColumns({ daily }: { daily: UsageReport['daily'] }) {
   const summary =
     daysUsed > 0
       ? `Dealers used it on ${daysUsed} of ${daily.length} days, at most ${most} dealer${most === 1 ? '' : 's'} in a day.`
-      : 'No dealer used DealerDock in this period.'
+      : 'No dealer used OEM Dealer Hub in this period.'
 
   return (
     <div className="cols" ref={frame} onPointerLeave={() => setTip(null)}>
-      <div className="cols-plot" role="img" aria-label={`Dealers using DealerDock each day. ${summary} The table view lists every day.`}>
+      <div className="cols-plot" role="img" aria-label={`Dealers using OEM Dealer Hub each day. ${summary} The table view lists every day.`}>
         <div className="cols-axis" aria-hidden>
           {axis.map((t) => (
             <span key={t} style={{ bottom: `${(t / max) * 100}%` }}>
@@ -185,7 +185,7 @@ function DealerTable({ report }: { report: UsageReport }) {
         <>
           {unused > 0 && (
             <p className="muted">
-              {unused} of {report.dealers.length} dealers haven't used DealerDock in the last {report.days} days. They're at the bottom of
+              {unused} of {report.dealers.length} dealers haven't used OEM Dealer Hub in the last {report.days} days. They're at the bottom of
               the list - it may be worth checking they can sign in.
             </p>
           )}

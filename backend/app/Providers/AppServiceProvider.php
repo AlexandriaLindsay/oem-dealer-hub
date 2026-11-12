@@ -70,6 +70,9 @@ class AppServiceProvider extends ServiceProvider
         Password::defaults(fn () => app()->isProduction() ? Password::min(10)->uncompromised() : Password::min(10));
 
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+        // The integration API (/api/v1): per key, generous for a nightly sync, a ceiling for a runaway loop.
+        // Before the key is checked, so by its hash - or the address, when there's no key.
+        RateLimiter::for('api-keys', fn (Request $request) => Limit::perMinute(120)->by($request->bearerToken() ? 'key:'.hash('sha256', $request->bearerToken()) : 'ip:'.$request->ip()));
         // Uploads are scanned and stored - generous for real use, a ceiling for abuse.
         RateLimiter::for('uploads', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
         // Serial lookup reaches past the dealer scope (to a model name), so it

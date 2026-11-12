@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
 use App\Http\Controllers\Api\Tenant\DocumentController;
 use App\Http\Controllers\Api\Tenant\FleetController;
+use App\Http\Controllers\Api\Tenant\IntegrationController;
 use App\Http\Controllers\Api\Tenant\MachineController;
 use App\Http\Controllers\Api\Tenant\MachineImportController;
 use App\Http\Controllers\Api\Tenant\PartsOrderController;
@@ -17,22 +18,36 @@ use App\Http\Controllers\Api\Tenant\ProductLineController;
 use App\Http\Controllers\Api\Tenant\ProductModelController;
 use App\Http\Controllers\Api\Tenant\QuoteController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
+use App\Http\Controllers\Api\Tenant\SalesOrderController;
 use App\Http\Controllers\Api\Tenant\SetupController;
 use App\Http\Controllers\Api\Tenant\StaffController;
 use App\Http\Controllers\Api\Tenant\TerritoryController;
 use App\Http\Controllers\Api\Tenant\UsageController;
 use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\TwoFactorController;
+use App\Http\Controllers\Api\V1;
 use Illuminate\Support\Facades\Route;
 
 // Public: plans, prices and legal details for the landing, pricing and legal pages.
 Route::get('/site', [LegalController::class, 'site']);
+
+// The integration API, for a manufacturer's own systems (docs/INTEGRATIONS.md).
+// An API key, not a person: the key decides the manufacturer (AuthenticateApiKey).
+Route::prefix('v1')->middleware('throttle:api-keys')->group(function () {
+    Route::get('/sales-orders', [V1\SalesOrderController::class, 'index'])->middleware('api-key:sales_orders:read');
+    Route::get('/sales-orders/{order}', [V1\SalesOrderController::class, 'show'])->middleware('api-key:sales_orders:read');
+    Route::patch('/sales-orders/{order}', [V1\SalesOrderController::class, 'update'])->middleware('api-key:sales_orders:write');
+    Route::get('/catalog', V1\CatalogController::class)->middleware('api-key:catalog:read');
+    Route::post('/machines', [V1\MachineController::class, 'upsert'])->middleware('api-key:machines:write');
+    Route::post('/prices', [V1\PriceController::class, 'update'])->middleware('api-key:prices:write');
+});
 
 // Signing in and up - rate limited per IP (AppServiceProvider).
 Route::middleware('throttle:auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/login/two-factor', [AuthController::class, 'twoFactorChallenge']);
+    Route::post('/login/two-factor/email', [AuthController::class, 'emailCode']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 });
@@ -44,6 +59,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/two-factor/setup', [TwoFactorController::class, 'setup']);
     Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:auth');
     Route::delete('/two-factor', [TwoFactorController::class, 'disable'])->middleware('throttle:auth');
+    // Email codes instead of an app, and the browsers they've remembered.
+    Route::post('/two-factor/email', [TwoFactorController::class, 'emailSetup'])->middleware('throttle:auth');
+    Route::post('/two-factor/email/confirm', [TwoFactorController::class, 'emailConfirm'])->middleware('throttle:auth');
+    Route::get('/account/security', [TwoFactorController::class, 'security']);
+    Route::delete('/account/trusted-browsers/{browser}', [TwoFactorController::class, 'forgetBrowser'])->whereNumber('browser');
+    Route::delete('/account/trusted-browsers', [TwoFactorController::class, 'forgetAllBrowsers']);
 
     Route::post('/tours/{key}/seen', [TourController::class, 'seen']);
     Route::post('/terms/accept', [LegalController::class, 'accept']);
@@ -68,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/onboarding', [SetupController::class, 'dismiss'])->middleware('feature:setup');
             Route::post('/logo', [SetupController::class, 'storeLogo'])->middleware(['feature:setup', 'throttle:uploads']);
             Route::delete('/logo', [SetupController::class, 'destroyLogo'])->middleware('feature:setup');
+            Route::post('/brand', [SetupController::class, 'brand'])->middleware('feature:custom_branding');
 
             Route::get('/product-lines', [ProductLineController::class, 'index'])->middleware('feature:products');
             Route::post('/product-lines', [ProductLineController::class, 'store'])->middleware('feature:manage_products');
@@ -110,8 +132,30 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/quotes/{quote}', [QuoteController::class, 'show'])->whereNumber('quote')->middleware('feature:quotes');
             Route::post('/quotes/{quote}', [QuoteController::class, 'update'])->whereNumber('quote')->middleware('feature:build_quotes');
             Route::post('/quotes/{quote}/status', [QuoteController::class, 'status'])->middleware('feature:build_quotes');
+            Route::post('/quotes/{quote}/outcome', [QuoteController::class, 'outcome'])->whereNumber('quote')->middleware('feature:close_quotes');
             Route::post('/quotes/{quote}/copy', [QuoteController::class, 'copy'])->middleware('feature:build_quotes');
             Route::delete('/quotes/{quote}', [QuoteController::class, 'destroy'])->whereNumber('quote')->middleware('feature:build_quotes');
+
+            Route::get('/sales-orders', [SalesOrderController::class, 'index'])->middleware('feature:sales_orders');
+            Route::get('/sales-orders/{order}', [SalesOrderController::class, 'show'])->whereNumber('order')->middleware('feature:sales_orders');
+            Route::post('/sales-orders/{order}', [SalesOrderController::class, 'update'])->whereNumber('order')->middleware('feature:manage_sales_orders');
+            Route::post('/sales-orders/{order}/status', [SalesOrderController::class, 'status'])->whereNumber('order')->middleware('feature:manage_sales_orders');
+
+            // Connecting their ERP: API keys, webhooks, matching numbers (Pro, owner and admin).
+            Route::middleware('feature:erp_integration')->group(function () {
+                Route::get('/integrations', [IntegrationController::class, 'index']);
+                Route::post('/integrations/settings', [IntegrationController::class, 'settings']);
+                Route::post('/integrations/api-keys', [IntegrationController::class, 'storeKey']);
+                Route::delete('/integrations/api-keys/{key}', [IntegrationController::class, 'revokeKey'])->whereNumber('key');
+                Route::post('/integrations/webhooks', [IntegrationController::class, 'storeWebhook']);
+                Route::post('/integrations/webhooks/{webhook}', [IntegrationController::class, 'updateWebhook'])->whereNumber('webhook');
+                Route::delete('/integrations/webhooks/{webhook}', [IntegrationController::class, 'destroyWebhook'])->whereNumber('webhook');
+                Route::post('/integrations/webhooks/{webhook}/rotate', [IntegrationController::class, 'rotateSecret'])->whereNumber('webhook');
+                Route::post('/integrations/webhooks/{webhook}/test', [IntegrationController::class, 'testWebhook'])->whereNumber('webhook');
+                Route::post('/integrations/deliveries/{delivery}/retry', [IntegrationController::class, 'retryDelivery'])->whereNumber('delivery');
+                Route::get('/integrations/mapping', [IntegrationController::class, 'mapping']);
+                Route::post('/integrations/mapping', [IntegrationController::class, 'saveMapping']);
+            });
 
             Route::get('/parts-orders', [PartsOrderController::class, 'index'])->middleware('feature:parts_orders');
             Route::get('/parts-orders/defaults', [PartsOrderController::class, 'defaults'])->middleware('feature:order_parts');
@@ -154,6 +198,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/dealers', [DealerController::class, 'index'])->middleware('feature:dealers');
             Route::post('/dealers', [DealerController::class, 'store'])->middleware('feature:manage_dealers');
             Route::post('/dealers/{link}/status', [DealerController::class, 'updateStatus'])->middleware('feature:manage_dealers');
+            Route::post('/dealers/{link}/product-lines', [DealerController::class, 'productLines'])->middleware('feature:manage_dealers');
 
             Route::get('/staff', [StaffController::class, 'index'])->middleware('feature:manage_staff');
             Route::post('/staff', [StaffController::class, 'store'])->middleware('feature:manage_staff');

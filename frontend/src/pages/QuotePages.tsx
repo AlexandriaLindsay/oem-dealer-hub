@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api, ApiError, type Catalog, type QuoteCustomer, type QuoteDetail, type QuoteLineData, type QuotePage, type QuoteStatus } from '../lib/api'
+import { api, ApiError, type Catalog, type QuoteCustomer, type QuoteDetail, type QuoteLineData, type QuotePage, type QuoteRow, type QuoteStatus } from '../lib/api'
+import { Board, ViewSwitch, type BoardColumn, type BoardTone } from '../components/Board'
 import { useApi } from '../lib/useApi'
 import { formatDate, useSlug } from '../lib/tenant'
 import { fromCents, money, toCents } from '../lib/money'
@@ -9,7 +10,7 @@ import { Loading } from '../components/AddForm'
 import { Field, FormError } from '../components/Form'
 
 function asApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
+  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' })
 }
 
 const STATUS_LABEL: Record<QuoteStatus, string> = { draft: 'Draft', sent: 'Sent', won: 'Won', lost: 'Lost' }
@@ -22,9 +23,14 @@ const customerName = (c: QuoteCustomer) => (c.company ? `${c.company} (${c.conta
 
 // ---- The list ----
 
-const TABS: [string, string][] = [
+// Each side's own statuses (Quote::visibleStatuses on the server).
+const DEALER_TABS: [string, string][] = [
   ['', 'All'],
   ['draft', 'Drafts'],
+  ['sent', 'Sent'],
+]
+const MANUFACTURER_TABS: [string, string][] = [
+  ['', 'All'],
   ['sent', 'Sent'],
   ['won', 'Won'],
   ['lost', 'Lost'],
@@ -36,14 +42,25 @@ export function QuotesPage() {
   const current = useCurrentManufacturer()
   const isDealer = current?.acting_as === 'dealer'
   const canBuild = !!current?.features.includes('build_quotes')
+  const canClose = !!current?.features.includes('close_quotes')
+  const tabs = isDealer ? DEALER_TABS : MANUFACTURER_TABS
   const [params, setParams] = useSearchParams()
+  // The board by default: the pipeline, a column per status. The list is a click away.
+  const view = params.get('view') === 'list' ? 'list' : 'board'
   const status = params.get('status') ?? ''
   const q = params.get('q') ?? ''
   const query = new URLSearchParams()
   if (status) query.set('status', status)
   if (q) query.set('q', q)
-  const { data, error } = useApi<QuotePage>(`/m/${slug}/quotes${query.size ? `?${query}` : ''}`)
+  const { data, error } = useApi<QuotePage>(view === 'list' ? `/m/${slug}/quotes${query.size ? `?${query}` : ''}` : null)
   const [creating, setCreating] = useState(false)
+
+  function setView(v: 'list' | 'board') {
+    const next = new URLSearchParams()
+    if (v === 'list') next.set('view', 'list')
+    if (q) next.set('q', q)
+    setParams(next, { replace: true })
+  }
 
   return (
     <>
@@ -56,19 +73,26 @@ export function QuotesPage() {
         )}
       </div>
       <p className="lede">
-        {isDealer ? `Quotes for your customers, priced from your ${current?.name} prices.` : 'Quotes your dealers have written for their customers. Read-only here.'}
+        {isDealer
+          ? `Quotes for your customers, priced from your ${current?.name} prices. ${current?.name} marks each sent quote won or lost.`
+          : canClose
+            ? "Quotes your dealers have sent their customers. Mark each one won or lost once you know how it went. Dealers' drafts stay with them."
+            : "Quotes your dealers have sent their customers. Dealers' drafts stay with them."}
       </p>
 
       {creating && <NewQuoteForm slug={slug} onCancel={() => setCreating(false)} onCreated={(id) => navigate(String(id))} />}
 
-      <div className="tabs" role="tablist" aria-label="Quote status">
-        {TABS.map(([key, label]) => (
-          <button key={key || 'all'} role="tab" aria-selected={status === key} className={status === key ? 'is-on' : ''} onClick={() => setParams(key ? { status: key } : {}, { replace: true })}>
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="filters">
+      <div className="view-bar">
+        <ViewSwitch view={view} onChange={setView} />
+        {view === 'list' && (
+          <div className="tabs" role="tablist" aria-label="Quote status">
+            {tabs.map(([key, label]) => (
+              <button key={key || 'all'} role="tab" aria-selected={status === key} className={status === key ? 'is-on' : ''} onClick={() => setParams(key ? { view: 'list', status: key } : { view: 'list' }, { replace: true })}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <form
           className="filter-search"
           role="search"
@@ -89,7 +113,9 @@ export function QuotesPage() {
         </form>
       </div>
 
-      {!data ? (
+      {view === 'board' ? (
+        <QuoteBoard slug={slug} q={q} canMove={isDealer ? canBuild : canClose} isDealer={isDealer} />
+      ) : !data ? (
         <Loading error={error} />
       ) : data.total === 0 ? (
         <p className="muted">{query.size ? 'No quotes match.' : canBuild ? 'No quotes yet. Start one for a customer.' : 'No quotes yet.'}</p>
@@ -125,6 +151,122 @@ export function QuotesPage() {
           </table>
         </div>
       )}
+    </>
+  )
+}
+
+/*
+ * Each side sees its own part of a quote's life (Quote::visibleStatuses on
+ * the server): the dealer their drafts and sent quotes, the manufacturer sent
+ * quotes and how they ended. The dealer sends or takes back (Quote::MOVES,
+ * via /status); the manufacturer marks a sent quote won or lost (/outcome).
+ */
+const DEALER_MOVES: Record<QuoteStatus, QuoteStatus[]> = { draft: ['sent'], sent: ['draft'], won: [], lost: [] }
+const CLOSING_MOVES: Record<QuoteStatus, QuoteStatus[]> = { draft: [], sent: ['won', 'lost'], won: [], lost: [] }
+const DEALER_COLUMNS: { key: QuoteStatus; title: string; tone: BoardTone }[] = [
+  { key: 'draft', title: 'Drafts', tone: 'neutral' },
+  { key: 'sent', title: 'Sent', tone: 'accent' },
+]
+const MANUFACTURER_COLUMNS: { key: QuoteStatus; title: string; tone: BoardTone }[] = [
+  { key: 'sent', title: 'Sent', tone: 'accent' },
+  { key: 'won', title: 'Won', tone: 'ok' },
+  { key: 'lost', title: 'Lost', tone: 'danger' },
+]
+const QUOTE_MOVE_LABEL: Record<QuoteStatus, string> = { draft: 'Back to draft', sent: 'Mark sent', won: 'Won', lost: 'Lost' }
+
+/** A column's value, per currency ("$12,400 · CA$3,100"). Only when every quote in it is loaded, so it's never a partial sum. */
+function columnValue(rows: QuoteRow[]): string | null {
+  const cents: Record<string, number> = {}
+  for (const r of rows) cents[r.currency] = (cents[r.currency] ?? 0) + (toCents(r.total) ?? 0)
+  const parts = Object.entries(cents).map(([cur, c]) => money(fromCents(c), cur).replace(/\.00$/, ''))
+  return parts.length ? parts.join(' · ') : null
+}
+
+/**
+ * The quote pipeline: a card per quote in its status's column. A dealer
+ * sends their drafts (drag, or the buttons); the manufacturer marks sent
+ * quotes won or lost.
+ */
+function QuoteBoard({ slug, q, canMove, isDealer }: { slug: string; q: string; canMove: boolean; isDealer: boolean }) {
+  const path = (status: string, shown: boolean) => (shown ? `/m/${slug}/quotes?${new URLSearchParams(q ? { status, q } : { status })}` : null)
+  const cols = {
+    draft: useApi<QuotePage>(path('draft', isDealer)),
+    sent: useApi<QuotePage>(path('sent', true)),
+    won: useApi<QuotePage>(path('won', !isDealer)),
+    lost: useApi<QuotePage>(path('lost', !isDealer)),
+  }
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const movesFor = (row: QuoteRow): string[] => (canMove ? (isDealer ? DEALER_MOVES : CLOSING_MOVES)[row.status] : [])
+
+  async function move(row: QuoteRow, to: string) {
+    setError(null)
+    setBusy(true)
+    try {
+      await api.post(`/m/${slug}/quotes/${row.id}/${isDealer ? 'status' : 'outcome'}`, { status: to })
+      await Promise.all([cols[row.status].reload(), cols[to as QuoteStatus].reload()])
+    } catch (e) {
+      setError(asApiError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const columns: BoardColumn<QuoteRow>[] = (isDealer ? DEALER_COLUMNS : MANUFACTURER_COLUMNS).map(({ key, title, tone }) => {
+    const c = cols[key]
+    const complete = c.data && c.data.total === c.data.data.length
+    return {
+      key,
+      title,
+      tone,
+      items: c.data?.data ?? null,
+      total: c.data?.total ?? 0,
+      error: c.error,
+      aside: complete ? columnValue(c.data!.data) : undefined,
+      footer: c.data && !complete ? `Showing the latest ${c.data.data.length} of ${c.data.total}. The list view has them all.` : undefined,
+    }
+  })
+
+  return (
+    <>
+      {error && (
+        <p className="form-error board-error" role="alert">
+          {error.field('status') ?? error.message}
+        </p>
+      )}
+      <Board
+        label="Quotes by status"
+        columns={columns}
+        cardKey={(r) => r.id}
+        movesFor={movesFor}
+        onMove={move}
+        empty={q ? 'None match.' : 'None.'}
+        renderCard={(r) => (
+          <>
+            <div className="card-top">
+              <Link to={String(r.id)}>{r.number}</Link>
+              {r.expired && <span className="card-flag">Expired</span>}
+            </div>
+            <span className="card-title">{customerName(r.customer)}</span>
+            <div className="card-meta">
+              <span className="card-amount">{money(r.total, r.currency)}</span>
+              {!isDealer && <span>{r.dealer}</span>}
+              {r.valid_until && r.status === 'sent' && <span>Valid until {formatDate(r.valid_until)}</span>}
+            </div>
+            {movesFor(r).length > 0 && (
+              <div className="card-actions">
+                {movesFor(r).map((to) => (
+                  <button key={to} className={to === 'lost' ? 'is-danger' : undefined} disabled={busy} onClick={() => move(r, to)}>
+                    {QUOTE_MOVE_LABEL[to as QuoteStatus]}
+                    <span className="sr-only"> quote {r.number}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      />
     </>
   )
 }
@@ -200,7 +342,7 @@ export function QuotePage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<ApiError | null>(null)
 
-  async function act(what: 'status' | 'copy' | 'delete', status?: QuoteStatus) {
+  async function act(what: 'status' | 'outcome' | 'copy' | 'delete', status?: QuoteStatus) {
     setBusy(what + (status ?? ''))
     setActionError(null)
     try {
@@ -212,7 +354,8 @@ export function QuotePage() {
         await api.delete(`/m/${slug}/quotes/${id}`)
         navigate('..', { relative: 'path' })
       } else {
-        await api.post(`/m/${slug}/quotes/${id}/status`, { status })
+        // The dealer's moves go to /status; the manufacturer's won or lost to /outcome.
+        await api.post(`/m/${slug}/quotes/${id}/${what}`, { status })
         reload()
       }
     } catch (e) {
@@ -254,18 +397,21 @@ export function QuotePage() {
                 Copy
               </button>
               {data.status === 'sent' && (
-                <>
-                  <button className="secondary" disabled={busy !== null} onClick={() => act('status', 'draft')}>
-                    Reopen as draft
-                  </button>
-                  <button className="secondary" disabled={busy !== null} onClick={() => act('status', 'lost')}>
-                    Mark lost
-                  </button>
-                  <button className="primary" disabled={busy !== null} onClick={() => act('status', 'won')}>
-                    Mark won
-                  </button>
-                </>
+                <button className="secondary" disabled={busy !== null} onClick={() => act('status', 'draft')}>
+                  Reopen as draft
+                </button>
               )}
+            </>
+          )}
+          {/* Won or lost is the manufacturer's call. */}
+          {data.can_close && (
+            <>
+              <button className="secondary" disabled={busy !== null} onClick={() => act('outcome', 'lost')}>
+                Mark lost
+              </button>
+              <button className="primary" disabled={busy !== null} onClick={() => act('outcome', 'won')}>
+                Mark won
+              </button>
             </>
           )}
         </span>
@@ -280,6 +426,14 @@ export function QuotePage() {
         <p className="form-error" role="alert">
           {statusError}
         </p>
+      )}
+      {data.sales_order && (
+        <div className="callout callout-ok" role="status">
+          <strong>Won, and now sales order {data.sales_order.number}.</strong>{' '}
+          <Link to={`../../sales-orders/${data.sales_order.id}`} relative="path">
+            Open the order
+          </Link>
+        </div>
       )}
 
       {data.can_edit ? (

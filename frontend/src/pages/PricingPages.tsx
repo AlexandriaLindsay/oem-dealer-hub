@@ -9,7 +9,7 @@ import { Field, FormError } from '../components/Form'
 import { money } from '../lib/money'
 
 function asApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
+  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' })
 }
 
 // ---- The catalog: what everyone with prices sees ----
@@ -323,6 +323,9 @@ export function PriceListPage() {
 
   if (!data) return <Loading error={error} />
 
+  // Their ERP sets these prices (Integrations), so they're shown here, not typed in.
+  const fromErp = !!data.prices_from_erp
+
   const box = (key: string, label: string) => (
     <td className="price-input">
       <span className="money-input">
@@ -331,6 +334,7 @@ export function PriceListPage() {
           aria-label={`${label} price`}
           inputMode="decimal"
           placeholder="On request"
+          readOnly={fromErp}
           value={draft[key] ?? ''}
           aria-invalid={!!rowErrors[key]}
           onChange={(e) => {
@@ -357,8 +361,13 @@ export function PriceListPage() {
         </button>
       </div>
       <p className="lede">
-        {data.currency === 'CAD' ? 'Canadian dollars' : 'US dollars'} · {data.is_default ? 'dealers without a list of their own buy from this one' : `${data.dealers_count} dealer${data.dealers_count === 1 ? '' : 's'} on it`}. Leave a price empty for "price on request".
+        {data.currency === 'CAD' ? 'Canadian dollars' : 'US dollars'} · {data.is_default ? 'dealers without a list of their own buy from this one' : `${data.dealers_count} dealer${data.dealers_count === 1 ? '' : 's'} on it`}.{fromErp ? '' : ' Leave a price empty for "price on request".'}
       </p>
+      {fromErp && (
+        <div className="callout" role="status">
+          <strong>These prices come from your ERP.</strong> Change them there and they update here. To type them in here instead, turn that off under <Link to="../../integrations" relative="path">Integrations</Link>.
+        </div>
+      )}
 
       {data.lines.length === 0 ? (
         <p className="muted">
@@ -379,7 +388,7 @@ export function PriceListPage() {
         ))
       )}
 
-      <div className="save-bar" role="region" aria-label="Save prices">
+      {!fromErp && <div className="save-bar" role="region" aria-label="Save prices">
         {saveError ? (
           <span className="form-error">{saveError}</span>
         ) : saved && changed.length === 0 ? (
@@ -390,7 +399,7 @@ export function PriceListPage() {
         <button className="primary" disabled={busy || changed.length === 0} onClick={onSave}>
           {busy ? 'Saving…' : 'Save prices'}
         </button>
-      </div>
+      </div>}
     </>
   )
 }

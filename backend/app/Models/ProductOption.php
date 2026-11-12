@@ -12,7 +12,7 @@ class ProductOption extends Model
 {
     use BelongsToManufacturer, HasFactory;
 
-    protected $fillable = ['product_model_id', 'name'];
+    protected $fillable = ['product_model_id', 'name', 'erp_ref'];
 
     public function productModel(): BelongsTo
     {

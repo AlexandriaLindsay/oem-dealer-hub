@@ -28,8 +28,8 @@ class RequireGoodStanding
 
             return response()->json([
                 'message' => $canPay
-                    ? "The DealerDock account for {$manufacturer->name} is paused. Choose a plan to pick up where you left off - nothing has been deleted."
-                    : "The DealerDock account for {$manufacturer->name} is paused. Nothing has been deleted; it'll be back as soon as {$manufacturer->name} chooses a plan.",
+                    ? "The OEM Dealer Hub account for {$manufacturer->name} is paused. Choose a plan to pick up where you left off - nothing has been deleted."
+                    : "The OEM Dealer Hub account for {$manufacturer->name} is paused. Nothing has been deleted; it'll be back as soon as {$manufacturer->name} chooses a plan.",
                 'code' => 'account_lapsed',
                 'can_manage_billing' => $canPay,
             ], 402);

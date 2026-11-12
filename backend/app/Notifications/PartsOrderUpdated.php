@@ -34,7 +34,7 @@ class PartsOrderUpdated extends Notification
     {
         $d = $this->data;
         $ref = $d['number'].($d['po'] ? " (your PO {$d['po']})" : '');
-        $mail = (new MailMessage)->salutation("DealerDock, for {$d['manufacturer']}");
+        $mail = (new MailMessage)->salutation("OEM Dealer Hub, for {$d['manufacturer']}");
 
         $mail = match ($d['status']) {
             PartsOrder::IN_PROGRESS => $mail->subject("Parts order {$d['number']} is being prepared")

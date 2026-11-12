@@ -6,7 +6,7 @@ return [
     'require_two_factor' => env('DEALERDOCK_REQUIRE_TWO_FACTOR', true),
 
     // Shown in the authenticator app next to the account.
-    'two_factor_issuer' => env('DEALERDOCK_TWO_FACTOR_ISSUER', 'DealerDock'),
+    'two_factor_issuer' => env('DEALERDOCK_TWO_FACTOR_ISSUER', 'OEM Dealer Hub'),
 
     /*
      * Uploaded documents (bills of sale, PDI checklists, later manuals).
@@ -38,7 +38,7 @@ return [
      * The company details fill the placeholders in the text.
      */
     'legal' => [
-        'version' => env('DEALERDOCK_TERMS_VERSION', '2026-11-11.2'),
+        'version' => env('DEALERDOCK_TERMS_VERSION', '2026-11-11.3'),
         // When the texts last changed, shown on both pages. (The version can change more than once a day.)
         'updated_on' => env('DEALERDOCK_LEGAL_UPDATED_ON', '2026-11-11'),
         'reviewed' => (bool) env('DEALERDOCK_LEGAL_REVIEWED', false),
@@ -64,5 +64,15 @@ return [
             'port' => (int) env('CLAMAV_PORT', 3310),
             'timeout' => (int) env('CLAMAV_TIMEOUT', 30),
         ],
+    ],
+
+    /*
+     * Webhooks to manufacturers' own systems (App\Integrations\UrlGuard).
+     * allow_private lets a webhook use plain http and private addresses
+     * (localhost, the office network) - for local development only, never in
+     * production, where it would let a webhook reach inside our own hosting.
+     */
+    'webhooks' => [
+        'allow_private' => (bool) env('DEALERDOCK_WEBHOOKS_ALLOW_PRIVATE', false),
     ],
 ];

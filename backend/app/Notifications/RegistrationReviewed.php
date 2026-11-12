@@ -40,7 +40,7 @@ class RegistrationReviewed extends Notification
                 ->subject("Registration approved: {$d['model']} {$d['serial']}")
                 ->line("{$d['manufacturer']} approved your {$d['type']} registration for {$what}.")
                 ->action('View the registration', $d['url'])
-                ->salutation("DealerDock, for {$d['manufacturer']}");
+                ->salutation("OEM Dealer Hub, for {$d['manufacturer']}");
         }
 
         return (new MailMessage)
@@ -49,6 +49,6 @@ class RegistrationReviewed extends Notification
             ->line('Their reason: '.$d['reason'])
             ->line('You can fix what they asked for and register the machine again.')
             ->action('View the registration', $d['url'])
-            ->salutation("DealerDock, for {$d['manufacturer']}");
+            ->salutation("OEM Dealer Hub, for {$d['manufacturer']}");
     }
 }

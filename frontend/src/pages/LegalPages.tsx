@@ -9,7 +9,7 @@ import { PublicLayout } from '../components/PublicLayout'
 /*
  * The privacy policy and terms.
  *
- * DRAFTS: written in plain language from how DealerDock works today, and NOT
+ * DRAFTS: written in plain language from how OEM Dealer Hub works today, and NOT
  * yet reviewed by a lawyer. They show a "draft" notice until
  * DEALERDOCK_LEGAL_REVIEWED=true. Company details come from config and show
  * as [placeholders] until set.
@@ -37,7 +37,7 @@ function LegalShell({ title, site, children }: { title: string; site: Site | nul
         )}
         {site && !site.legal.reviewed && (
           <div className="callout" role="note">
-            <strong>Draft.</strong> This hasn't been reviewed by a lawyer yet. It describes how DealerDock works today, but it isn't final.
+            <strong>Draft.</strong> This hasn't been reviewed by a lawyer yet. It describes how OEM Dealer Hub works today, but it isn't final.
           </div>
         )}
         {children}
@@ -56,7 +56,7 @@ export function PrivacyPage() {
     <LegalShell title="Privacy policy" site={site}>
       <h2>Who we are</h2>
       <p>
-        DealerDock is run by {company}, <Detail value={l?.company_address ?? null} label="Company address" />. Questions about your information: {email}.
+        OEM Dealer Hub is run by {company}, <Detail value={l?.company_address ?? null} label="Company address" />. Questions about your information: {email}.
       </p>
 
       <h2>Two kinds of information, two roles</h2>
@@ -64,7 +64,7 @@ export function PrivacyPage() {
         <strong>Your account</strong> - your name, email and sign-in details. We decide how this is used, and this policy explains it.
       </p>
       <p>
-        <strong>What manufacturers and dealers put into DealerDock</strong> - machines, registrations (including the names, contact details and addresses of the customers who bought or rented a machine), and uploaded documents. The manufacturer decides what goes in and who sees it; we store and process it for them. If you're one of their customers, contact that manufacturer or dealer about your information, and we'll help them answer.
+        <strong>What manufacturers and dealers put into OEM Dealer Hub</strong> - machines, registrations (including the names, contact details and addresses of the customers who bought or rented a machine), and uploaded documents. The manufacturer decides what goes in and who sees it; we store and process it for them. If you're one of their customers, contact that manufacturer or dealer about your information, and we'll help them answer.
       </p>
 
       <h2>What we collect</h2>
@@ -82,13 +82,13 @@ export function PrivacyPage() {
           <strong>Technical:</strong> your IP address and the time of each request, in server logs and to limit repeated sign-in attempts. Which guided tours you've seen, and when you agreed to these terms.
         </li>
         <li>
-          <strong>How DealerDock is used:</strong> on manufacturer accounts with the usage report (Pro), for each person, each day, which areas of DealerDock they opened (for example machines, quotes, parts orders) and how many times. Not which machine, quote or document, not what you searched for, not your IP address. The manufacturer's owner and admins see it, to know which dealers use DealerDock and for what. It's kept for 13 months, then deleted. Accounts without the report record nothing.
+          <strong>How OEM Dealer Hub is used:</strong> on manufacturer accounts with the usage report (Pro), for each person, each day, which areas of OEM Dealer Hub they opened (for example machines, quotes, parts orders) and how many times. Not which machine, quote or document, not what you searched for, not your IP address. The manufacturer's owner and admins see it, to know which dealers use OEM Dealer Hub and for what. It's kept for 13 months, then deleted. Accounts without the report record nothing.
         </li>
       </ul>
 
       <h2>Cookies and tracking - the complete list</h2>
       <p>
-        DealerDock uses no third-party analytics, no advertising, no tracking pixels and no third-party trackers. The only usage information is the per-day count described above, kept by DealerDock itself. It stores nothing in your browser's local storage. These are all the cookies and checks involved:
+        OEM Dealer Hub uses no third-party analytics, no advertising, no tracking pixels and no third-party trackers. The only usage information is the per-day count described above, kept by OEM Dealer Hub itself. It stores nothing in your browser's local storage. These are all the cookies and checks involved:
       </p>
       <div className="table-wrap">
         <table>
@@ -103,9 +103,9 @@ export function PrivacyPage() {
           <tbody>
             <tr>
               <td>
-                <code>dealerdock-session</code> cookie
+                <code>oem-dealer-hub-session</code> cookie
               </td>
-              <td>DealerDock</td>
+              <td>OEM Dealer Hub</td>
               <td className="wrap">Keeps you signed in. Strictly necessary.</td>
               <td className="wrap">Until you sign out, or 2 hours without use</td>
             </tr>
@@ -113,7 +113,7 @@ export function PrivacyPage() {
               <td>
                 <code>XSRF-TOKEN</code> cookie
               </td>
-              <td>DealerDock</td>
+              <td>OEM Dealer Hub</td>
               <td className="wrap">Stops other websites from acting as you (cross-site request forgery). Strictly necessary.</td>
               <td className="wrap">Same as the session</td>
             </tr>
@@ -121,7 +121,7 @@ export function PrivacyPage() {
               <td>
                 <code>remember_web_…</code> cookie
               </td>
-              <td>DealerDock</td>
+              <td>OEM Dealer Hub</td>
               <td className="wrap">Only if you tick "Keep me signed in": signs you back in on this browser.</td>
               <td className="wrap">Up to 400 days, or until you sign out</td>
             </tr>
@@ -171,7 +171,7 @@ export function PrivacyPage() {
       </ul>
       <p>Uploaded files are checked for viruses on our own servers; they aren't sent to anyone else to scan. We don't sell information, and we don't share it for advertising.</p>
       <p>
-        Inside DealerDock, each manufacturer only ever sees its own information. A dealer sees only its own machines and registrations with each manufacturer it works with - never another dealer's.
+        Inside OEM Dealer Hub, each manufacturer only ever sees its own information. A dealer sees only its own machines and registrations with each manufacturer it works with - never another dealer's.
       </p>
 
       <h2>How long we keep it</h2>
@@ -190,7 +190,7 @@ export function PrivacyPage() {
       </p>
 
       <h2>Children</h2>
-      <p>DealerDock is a business tool, not meant for anyone under 16.</p>
+      <p>OEM Dealer Hub is a business tool, not meant for anyone under 16.</p>
 
       <h2>Changes</h2>
       <p>The version above changes whenever this policy does. For changes that matter, we'll ask you to read and agree again the next time you sign in.</p>
@@ -210,12 +210,12 @@ export function TermsPage() {
     <LegalShell title="Terms of service" site={site}>
       <h2>The agreement</h2>
       <p>
-        These terms are between {company} ("we") and the manufacturer that opens a DealerDock account ("you"). Everyone who uses DealerDock - your staff, and the dealers you invite - agrees to them too. By agreeing, you confirm you can accept them for your company.
+        These terms are between {company} ("we") and the manufacturer that opens an OEM Dealer Hub account ("you"). Everyone who uses OEM Dealer Hub - your staff, and the dealers you invite - agrees to them too. By agreeing, you confirm you can accept them for your company.
       </p>
 
       <h2>The service</h2>
       <p>
-        DealerDock is a dealer portal: machines and their history, sale and rental registrations, manuals, fleet reports and the people who use them. We keep improving it, and may change how parts of it work; we won't take away something you rely on without telling you first.
+        OEM Dealer Hub is a dealer portal: machines and their history, sale and rental registrations, manuals, fleet reports and the people who use them. We keep improving it, and may change how parts of it work; we won't take away something you rely on without telling you first.
       </p>
 
       <h2>Accounts</h2>
@@ -239,21 +239,21 @@ export function TermsPage() {
         </li>
         <li>If a payment fails, everything keeps working while it's retried. If it still can't be collected, the account is paused until it's paid.</li>
         <li>We'll give at least <Detail value={null} label="notice period, e.g. 30 days" /> notice of a price change, which applies from your next renewal.</li>
-        <li>Dealers never pay to use DealerDock.</li>
+        <li>Dealers never pay to use OEM Dealer Hub.</li>
         <li>ERP integration is quoted and agreed separately.</li>
       </ul>
 
       <h2>Your information</h2>
       <p>
-        What you and your dealers put into DealerDock stays yours. You let us store and process it only to run DealerDock for you, as the <Link to="/privacy">privacy policy</Link> describes. You can export your fleet at any time. If your account is paused, nothing is deleted for <Detail value={null} label="retention period" />.
+        What you and your dealers put into OEM Dealer Hub stays yours. You let us store and process it only to run OEM Dealer Hub for you, as the <Link to="/privacy">privacy policy</Link> describes. You can export your fleet at any time. If your account is paused, nothing is deleted for <Detail value={null} label="retention period" />.
       </p>
 
       <h2>Fair use</h2>
-      <p>Don't use DealerDock to break the law, upload malware or content you don't have the right to share, try to reach other companies' information, get around plan limits or security, or overload the service.</p>
+      <p>Don't use OEM Dealer Hub to break the law, upload malware or content you don't have the right to share, try to reach other companies' information, get around plan limits or security, or overload the service.</p>
 
       <h2>Availability and support</h2>
       <p>
-        We work to keep DealerDock running and your information safe, but we can't promise it will never be unavailable. Support: {email}.
+        We work to keep OEM Dealer Hub running and your information safe, but we can't promise it will never be unavailable. Support: {email}.
       </p>
 
       <h2>Liability</h2>
@@ -296,7 +296,7 @@ export function AcceptTermsPage() {
       await refresh()
       navigate('/')
     } catch (err) {
-      setError(err instanceof ApiError ? (err.field('accept') ? 'Tick the box to agree.' : (err.field('version') ?? err.message)) : 'Could not reach DealerDock.')
+      setError(err instanceof ApiError ? (err.field('accept') ? 'Tick the box to agree.' : (err.field('version') ?? err.message)) : 'Could not reach OEM Dealer Hub.')
     } finally {
       setBusy(false)
     }
@@ -307,7 +307,7 @@ export function AcceptTermsPage() {
       <div className="auth-card">
         <div className="brand">
           <img src="/favicon.svg" alt="" width={28} height={28} />
-          <span>DealerDock</span>
+          <span>OEM Dealer Hub</span>
         </div>
         <h1>{updated ? 'Our terms have changed' : 'Before you start'}</h1>
         <p className="lede">
@@ -319,7 +319,7 @@ export function AcceptTermsPage() {
           <Link to="/privacy" target="_blank">
             privacy policy
           </Link>
-          {updated ? ' and agree to keep using DealerDock.' : '. They say how DealerDock works and what happens to your information.'}
+          {updated ? ' and agree to keep using OEM Dealer Hub.' : '. They say how OEM Dealer Hub works and what happens to your information.'}
         </p>
         <form onSubmit={onSubmit} noValidate>
           <label className="check">

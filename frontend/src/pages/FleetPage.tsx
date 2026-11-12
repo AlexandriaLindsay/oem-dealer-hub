@@ -5,7 +5,7 @@ import { useApi } from '../lib/useApi'
 import { useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
 import { Loading } from '../components/AddForm'
-import { ChartCard, StackedBars, StackedTable, StatusLegend, StatusSplit, type StackedRow } from '../components/charts'
+import { AgingBars, AgingLegend, AgingTable, ChartCard, StackedBars, StackedTable, StatusDonut, StatusLegend, type AgingRow, type StackedRow } from '../components/charts'
 
 const fmt = new Intl.NumberFormat()
 
@@ -49,7 +49,7 @@ function FleetReport() {
     try {
       await download(`/m/${slug}/fleet/export${qs}`, `${slug}-fleet.xlsx`)
     } catch (e) {
-      setExportError(e instanceof ApiError ? e.message : 'Could not reach DealerDock.')
+      setExportError(e instanceof ApiError ? e.message : 'Could not reach OEM Dealer Hub.')
     } finally {
       setExporting(false)
     }
@@ -82,6 +82,17 @@ function FleetReport() {
   }))
 
   const atFactory = data?.by_dealer.find((d) => d.id === null)?.total ?? 0
+
+  // Unsold stock by how long it's sat, per dealer; each links to that dealer's stock over 180 days.
+  const agingRows: AgingRow[] = (data?.aging.by_dealer ?? []).map((d) => ({
+    key: String(d.id ?? 'factory'),
+    name: d.name,
+    to: machinesLink({ dealer: d.id === null ? 'none' : String(d.id), aged: '180', view: 'list' }),
+    counts: d.counts,
+    total: d.total,
+    oldest_days: d.oldest_days,
+  }))
+  const aged = data ? data.aging.totals[2] + data.aging.totals[3] : 0
   const dealersWithStock = data?.by_dealer.filter((d) => d.id !== null).length ?? 0
 
   return (
@@ -124,32 +135,50 @@ function FleetReport() {
         // While a new filter loads, the last result stays, dimmed - no flash.
         <div className={loading ? 'is-refreshing' : undefined} aria-busy={loading}>
           <div className="kpis">
-            <div className="hero">
-              <span className="hero-value">{fmt.format(data.total)}</span>
-              <span className="tile-label">machine{data.total === 1 ? '' : 's'}{query.size ? ' matching these filters' : ''}</span>
+            <div className="tile">
+              <span className="tile-label">Machines</span>
+              <span className="tile-value">{fmt.format(data.total)}</span>
+              <span className="tile-sub">{query.size ? 'matching these filters' : 'across the whole fleet'}</span>
             </div>
             <div className="tile">
               <span className="tile-label">At dealers</span>
               <span className="tile-value">{fmt.format(data.total - atFactory)}</span>
+              <span className="tile-sub">{data.total ? `${Math.round(((data.total - atFactory) / data.total) * 100)}% of these machines` : 'none yet'}</span>
             </div>
             <div className="tile">
               <span className="tile-label">Dealers with stock</span>
               <span className="tile-value">{fmt.format(dealersWithStock)}</span>
+              <span className="tile-sub">{dealers.length ? `of ${fmt.format(dealers.length)} dealers` : 'holding machines'}</span>
             </div>
             <div className="tile">
               <span className="tile-label">At the factory</span>
               <span className="tile-value">{fmt.format(atFactory)}</span>
+              <span className="tile-sub">not with a dealer yet</span>
             </div>
           </div>
 
-          <section className="panel">
-            <h2>By status</h2>
-            <StatusSplit counts={data.by_status} total={data.total} />
-            {data.total > 0 && <StatusLegend />}
+          <section className="panel" aria-labelledby="fleet-status">
+            <div className="card-head">
+              <div>
+                <h2 id="fleet-status">By status</h2>
+                <p>Each machine counted once, by where it is in its life.</p>
+              </div>
+            </div>
+            {data.total > 0 ? <StatusDonut counts={data.by_status} linkTo={(s) => machinesLink({ status: s })} /> : <p className="muted">No machines match these filters.</p>}
           </section>
 
           {data.total > 0 && (
             <>
+              {agingRows.length > 0 && (
+                <ChartCard title="How long it's been sitting" table={<AgingTable rows={agingRows} bands={data.aging.bands} />}>
+                  <p className="muted small chart-note">
+                    Unsold machines (new, demo and used), by days since they arrived at the dealer.{' '}
+                    {aged > 0 ? <strong className="aging-callout">{aged} over 180 days.</strong> : 'None over 180 days.'} Dealers with the oldest stock come first.
+                  </p>
+                  <AgingLegend bands={data.aging.bands} />
+                  <AgingBars rows={agingRows} bands={data.aging.bands} />
+                </ChartCard>
+              )}
               <ChartCard title="By dealer" table={<StackedTable rows={dealerRows} first="Dealer" />}>
                 <StatusLegend />
                 <StackedBars rows={dealerRows} label="Machines by dealer" />

@@ -24,6 +24,8 @@ class DashboardController extends Controller
                 'acting_as' => 'dealer',
                 'product_lines' => ProductLine::count(),
                 'machines' => self::machinesByStatus(),
+                // Unsold and sitting over 180 days - the stock to talk about.
+                'aged_machines' => Machine::filter(['aged' => 180])->count(),
                 // Their own, waiting for the manufacturer (Registration's dealer scope).
                 'registrations_pending' => Registration::where('status', Registration::PENDING)->count(),
                 // Announcements sent to their dealership that this person hasn't opened.
@@ -53,6 +55,7 @@ class DashboardController extends Controller
             ]),
             'product_lines' => ProductLine::count(),
             'machines' => self::machinesByStatus(),
+            'aged_machines' => Machine::filter(['aged' => 180])->count(),
             'registrations_pending' => Registration::where('status', Registration::PENDING)->count(),
         ]);
     }

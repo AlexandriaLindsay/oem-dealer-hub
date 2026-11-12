@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { api, ApiError, MACHINE_STATUSES, type MachineStatus, type DealerRow, type MachineDetail, type MachinePage, type ProductModelRow } from '../lib/api'
+import { api, ApiError, MACHINE_STATUSES, STATUS_LABELS, type MachineStatus, type DealerRow, type MachineDetail, type MachinePage, type MachineRow, type ProductModelRow } from '../lib/api'
+import { Board, ViewSwitch, type BoardColumn } from '../components/Board'
 import { useApi } from '../lib/useApi'
 import { formatDate, formatDateTime, useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
@@ -14,6 +15,21 @@ const STATUS_OPTIONS: Option[] = MACHINE_STATUSES.map((s) => ({ value: s, label:
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/**
+ * How long an unsold machine has sat, in days. Over 180 is flagged (the
+ * fleet report's "aged stock"), with words as well as the colour.
+ */
+export function DaysInStock({ days, card = false }: { days: number | null; card?: boolean }) {
+  if (days === null) return card ? null : <span className="muted">—</span>
+  const old = days > 180
+  return (
+    <span className={`days-in-stock${old ? ' is-old' : ''}`} title={old ? 'Unsold for over 180 days' : undefined}>
+      {card ? `${days} days in stock` : days}
+      {old && <span className="sr-only"> (over 180 days)</span>}
+    </span>
+  )
 }
 
 export function StatusBadge({ status }: { status: MachineStatus }) {
@@ -42,13 +58,34 @@ export function MachinesPage() {
   const canAdd = !!current?.features.includes('manage_machines')
   const [params, setParams] = useSearchParams()
   const [adding, setAdding] = useState(false)
+  // The board by default: a column per status. The list (with paging) is a click away,
+  // and a link to one status (the dashboard's donut, the fleet report) opens the list filtered to it.
+  const view = params.get('view') === 'list' || (params.get('view') !== 'board' && params.has('status')) ? 'list' : 'board'
+  // Bumped after adding a machine, so the board fetches again too.
+  const [version, setVersion] = useState(0)
 
   const query = new URLSearchParams()
-  for (const key of ['q', 'status', 'line', 'model', 'dealer', 'page']) {
+  for (const key of ['q', 'status', 'line', 'model', 'dealer', 'aged', 'page']) {
     const value = params.get(key)
     if (value) query.set(key, value)
   }
-  const { data, error, reload } = useApi<MachinePage>(`/m/${slug}/machines${query.size ? `?${query}` : ''}`)
+  const { data, error, reload } = useApi<MachinePage>(view === 'list' ? `/m/${slug}/machines${query.size ? `?${query}` : ''}` : null)
+
+  /** The board's filters: everything but status (the columns) and the page. */
+  const boardQuery = new URLSearchParams(query)
+  boardQuery.delete('status')
+  boardQuery.delete('page')
+
+  function setView(v: 'list' | 'board') {
+    const next = new URLSearchParams(params)
+    next.delete('page')
+    if (v === 'list') next.set('view', 'list')
+    else {
+      next.delete('view')
+      next.delete('status')
+    }
+    setParams(next, { replace: true })
+  }
   const models = useApi<ProductModelRow[]>(`/m/${slug}/product-models`).data ?? []
   const dealers = useDealerOptions(!isDealer && !!current?.features.includes('dealers'))
 
@@ -107,7 +144,8 @@ export function MachinesPage() {
             button="Add machine"
             onAdded={() => {
               setAdding(false)
-              reload()
+              if (view === 'list') reload()
+              else setVersion((v) => v + 1)
             }}
             onCancel={() => setAdding(false)}
           />
@@ -115,6 +153,7 @@ export function MachinesPage() {
       )}
 
       <div className="filters">
+        <ViewSwitch view={view} onChange={setView} />
         <form onSubmit={onSearch} className="filter-search" role="search">
           <label htmlFor="machine-search" className="sr-only">
             Search serial or production number
@@ -122,12 +161,23 @@ export function MachinesPage() {
           <input id="machine-search" name="q" type="search" placeholder="Serial or production number" defaultValue={params.get('q') ?? ''} key={params.get('q') ?? ''} />
           <button className="secondary">Search</button>
         </form>
-        <FilterSelect label="Status" value={params.get('status') ?? ''} onChange={(v) => setFilter('status', v)} options={[{ value: '', label: 'Any status' }, ...STATUS_OPTIONS]} />
+        {view === 'list' && <FilterSelect label="Status" value={params.get('status') ?? ''} onChange={(v) => setFilter('status', v)} options={[{ value: '', label: 'Any status' }, ...STATUS_OPTIONS]} />}
         <FilterSelect
           label="Model"
           value={params.get('model') ?? ''}
           onChange={(v) => setFilter('model', v)}
           options={[{ value: '', label: 'Any model' }, ...models.map((m) => ({ value: String(m.id), label: m.name }))]}
+        />
+        <FilterSelect
+          label="How long in stock"
+          value={params.get('aged') ?? ''}
+          onChange={(v) => setFilter('aged', v)}
+          options={[
+            { value: '', label: 'Any age' },
+            { value: '90', label: 'Unsold 90+ days' },
+            { value: '180', label: 'Unsold 180+ days' },
+            { value: '365', label: 'Unsold over a year' },
+          ]}
         />
         {!isDealer && dealers.length > 0 && (
           <FilterSelect
@@ -139,7 +189,9 @@ export function MachinesPage() {
         )}
       </div>
 
-      {!data ? (
+      {view === 'board' ? (
+        <MachineBoard key={version} slug={slug} filters={boardQuery.toString()} isDealer={isDealer} canMove={!!current?.features.includes('machine_status')} />
+      ) : !data ? (
         <Loading error={error} />
       ) : data.total === 0 ? (
         <p className="muted">{query.size ? 'No machines match those filters.' : isDealer ? 'No machines with you yet.' : 'No machines yet.'}</p>
@@ -154,6 +206,7 @@ export function MachinesPage() {
                   {!isDealer && <th>Dealer</th>}
                   <th>Status</th>
                   <th>Shipped</th>
+                  <th className="num">Days in stock</th>
                 </tr>
               </thead>
               <tbody>
@@ -170,6 +223,7 @@ export function MachinesPage() {
                       <StatusBadge status={m.status} />
                     </td>
                     <td>{formatDate(m.shipped_at)}</td>
+                    <td className="num"><DaysInStock days={m.days_in_stock} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -197,7 +251,101 @@ export function MachinesPage() {
   )
 }
 
-function FilterSelect(props: { label: string; value: string; onChange: (value: string) => void; options: Option[] }) {
+/**
+ * Machines as a board: a column per status, a card per machine. Someone who
+ * can change status moves a card by dragging it or with its "Move to" menu;
+ * each move lands in the machine's history like a change made on its page.
+ */
+function MachineBoard({ slug, filters, isDealer, canMove }: { slug: string; filters: string; isDealer: boolean; canMove: boolean }) {
+  const path = (status: MachineStatus) => `/m/${slug}/machines?${new URLSearchParams(`${filters}${filters ? '&' : ''}status=${status}`)}`
+  const cols: Record<MachineStatus, ReturnType<typeof useApi<MachinePage>>> = {
+    inventory: useApi<MachinePage>(path('inventory')),
+    demo: useApi<MachinePage>(path('demo')),
+    rental: useApi<MachinePage>(path('rental')),
+    sold: useApi<MachinePage>(path('sold')),
+    used: useApi<MachinePage>(path('used')),
+  }
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const movesFor = (m: MachineRow): string[] => (canMove ? MACHINE_STATUSES.filter((s) => s !== m.status) : [])
+
+  async function move(m: MachineRow, to: string) {
+    setError(null)
+    setBusy(true)
+    try {
+      await api.post(`/m/${slug}/machines/${m.id}/status`, { status: to })
+      await Promise.all([cols[m.status].reload(), cols[to as MachineStatus].reload()])
+    } catch (e) {
+      setError(e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const columns: BoardColumn<MachineRow>[] = MACHINE_STATUSES.map((s) => {
+    const c = cols[s]
+    return {
+      key: s,
+      title: STATUS_LABELS[s],
+      tone: 'neutral',
+      color: `var(--status-${s})`,
+      items: c.data?.data ?? null,
+      total: c.data?.total ?? 0,
+      error: c.error,
+      footer: c.data && c.data.total > c.data.data.length ? `Showing the latest ${c.data.data.length} of ${c.data.total}. The list view has them all.` : undefined,
+    }
+  })
+
+  return (
+    <>
+      {error && (
+        <p className="form-error board-error" role="alert">
+          {error.message}
+        </p>
+      )}
+      <Board
+        label="Machines by status"
+        columns={columns}
+        cardKey={(m) => m.id}
+        movesFor={movesFor}
+        onMove={move}
+        empty={filters ? 'None match.' : 'None.'}
+        renderCard={(m) => (
+          <>
+            <div className="card-top">
+              <Link to={String(m.id)}>{m.serial_no}</Link>
+            </div>
+            <span className="card-title">
+              {m.model.name} <span className="muted">· {m.product_line}</span>
+            </span>
+            <div className="card-meta">
+              {!isDealer && <span>{m.dealer?.name ?? 'At the factory'}</span>}
+              {m.days_in_stock !== null ? <DaysInStock days={m.days_in_stock} card /> : m.shipped_at && <span>Shipped {formatDate(m.shipped_at)}</span>}
+            </div>
+            {canMove && (
+              <div className="card-actions">
+                <label className="card-move">
+                  <span className="sr-only">Move {m.serial_no} to</span>
+                  <select value="" disabled={busy} onChange={(e) => e.target.value && move(m, e.target.value)}>
+                    <option value="">Move to…</option>
+                    {movesFor(m).map((s) => (
+                      <option key={s} value={s}>
+                        {STATUS_LABELS[s as MachineStatus]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+          </>
+        )}
+      />
+    </>
+  )
+}
+
+function FilterSelect(props:{ label: string; value: string; onChange: (value: string) => void; options: Option[] }) {
   return (
     <label className="filter-select">
       <span className="sr-only">{props.label}</span>
@@ -332,7 +480,7 @@ function ChangeForm(props: { title: string; path: string; field: string; value: 
       form.reset()
       props.onDone()
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError(0, { message: 'Could not reach DealerDock.' }))
+      setError(err instanceof ApiError ? err : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' }))
     } finally {
       setBusy(false)
     }

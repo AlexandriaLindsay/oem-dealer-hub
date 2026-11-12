@@ -13,7 +13,7 @@ function AuthCard({ title, children, footer }: { title: string; children: ReactN
       <div className="auth-card">
         <div className="brand">
           <img src="/favicon.svg" alt="" width={28} height={28} />
-          <span>DealerDock</span>
+          <span>OEM Dealer Hub</span>
         </div>
         <h1>{title}</h1>
         {children}
@@ -34,7 +34,7 @@ function useSubmit(onError?: () => void) {
     try {
       await action()
     } catch (e) {
-      setError(e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock. Check your connection.' }))
+      setError(e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub. Check your connection.' }))
       onError?.()
     } finally {
       setBusy(false)
@@ -65,9 +65,22 @@ function useBotCheck() {
 export function LoginPage() {
   const { setMe } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [step, setStep] = useState<'password' | 'code'>('password')
   const bot = useBotCheck()
   const { busy, error, run } = useSubmit(bot.reset)
+
+  // The staff console sends signed-out staff here with ?next=console. Only
+  // that one value, and only to the address the API gives staff, so this
+  // can't be used to send anyone to another site.
+  function signedIn(me: Me) {
+    setMe(me)
+    if (params.get('next') === 'console' && me.user.console_url && me.user.two_factor) {
+      window.location.assign(me.user.console_url)
+    } else {
+      navigate('/')
+    }
+  }
 
   function onPassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -77,8 +90,7 @@ export function LoginPage() {
       if ('two_factor' in result) {
         setStep('code')
       } else {
-        setMe(result)
-        navigate('/')
+        signedIn(result)
       }
     })
   }
@@ -87,16 +99,17 @@ export function LoginPage() {
     e.preventDefault()
     const v = formValues(e.currentTarget)
     run(async () => {
-      setMe(await api.post<Me>('/login/two-factor', { code: v.code }))
-      navigate('/')
+      signedIn(await api.post<Me>('/login/two-factor', { code: v.code }))
     })
   }
 
   if (step === 'code') {
     return (
       <AuthCard title="Enter your code">
-        <form onSubmit={onCode} noValidate>
-          <p className="lede">Open your authenticator app and enter the 6-digit code for DealerDock.</p>
+        {/* Its own key: without it React reuses the password step's input, so the
+            password would show here in plain text and fill the code box. */}
+        <form key="code" onSubmit={onCode} noValidate>
+          <p className="lede">Open your authenticator app and enter the 6-digit code for OEM Dealer Hub.</p>
           <Field label="Code" name="code" error={error} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={7} />
           <FormError error={error} />
           <button className="primary" disabled={busy}>
@@ -119,7 +132,7 @@ export function LoginPage() {
         </>
       }
     >
-      <form onSubmit={onPassword} noValidate>
+      <form key="password" onSubmit={onPassword} noValidate>
         <Field label="Email" name="email" type="email" error={error} autoComplete="email" autoFocus required />
         <Field label="Password" name="password" type="password" error={error} autoComplete="current-password" required />
         <label className="check">
@@ -159,7 +172,7 @@ export function SignupPage() {
       title="Start your free trial"
       footer={
         <>
-          Already on DealerDock? <Link to="/login">Sign in</Link>
+          Already on OEM Dealer Hub? <Link to="/login">Sign in</Link>
         </>
       }
     >
@@ -293,7 +306,7 @@ export function TwoFactorSetupPage() {
       }
     >
       <p className="lede">
-        DealerDock protects your company's dealer data with a second step at sign-in. Scan this code with an authenticator app (Microsoft Authenticator,
+        OEM Dealer Hub protects your company's dealer data with a second step at sign-in. Scan this code with an authenticator app (Microsoft Authenticator,
         Google Authenticator, 1Password…), then enter the code it shows.
       </p>
       {loadError && <p className="form-error">{loadError}</p>}

@@ -10,8 +10,11 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\QuoteLine;
+use App\Models\SalesOrder;
+use App\Support\Features;
 use App\Support\Money;
 use App\Tenancy\Tenant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,8 +24,9 @@ use Illuminate\Validation\ValidationException;
 /**
  * Quotes. Dealers write them for their customers, priced from their own
  * price list (feature build_quotes); they see only their own (Quote's dealer
- * scope). The manufacturer's sales staff can read every dealer's quotes but
- * not change them (feature quotes).
+ * scope). The manufacturer's sales staff see every dealer's quotes once
+ * they're sent (never drafts), and mark each one won or lost (feature
+ * close_quotes); a closed quote leaves the dealer's view (Quote::visibleStatuses).
  *
  * Prices are always worked out here, from the dealer's list - never trusted
  * from the browser - except a unit price the dealer deliberately changes.
@@ -36,12 +40,12 @@ class QuoteController extends Controller
     public function index(Request $request): JsonResponse
     {
         $filters = $request->validate([
-            'status' => ['nullable', Rule::in(array_keys(Quote::MOVES))],
+            'status' => ['nullable', Rule::in(Quote::visibleStatuses())],
             'q' => ['nullable', 'string', 'max:120'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $page = Quote::with(['dealerLink.dealer', 'creator'])
+        $page = self::visible()->with(['dealerLink.dealer', 'creator'])
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->when($filters['q'] ?? null, function ($q, $search) {
                 $like = '%'.addcslashes($search, '%_\\').'%';
@@ -61,7 +65,7 @@ class QuoteController extends Controller
 
     public function show(int $quote): JsonResponse
     {
-        return response()->json(self::detail(Quote::findOrFail($quote)));
+        return response()->json(self::detail(self::visible()->findOrFail($quote)));
     }
 
     /** A new draft for the signed-in dealer, in their list's currency. */
@@ -100,7 +104,7 @@ class QuoteController extends Controller
     /** Replaces a draft's customer, notes, lines and discount. Prices re-checked against the current list. */
     public function update(Request $request, int $quote): JsonResponse
     {
-        $q = Quote::findOrFail($quote);
+        $q = self::visible()->findOrFail($quote);
         $this->assertDraft($q);
         $list = PriceList::forDealer(Tenant::current()->dealerLink());
 
@@ -118,12 +122,15 @@ class QuoteController extends Controller
         return response()->json(self::detail($q->fresh()));
     }
 
-    /** draft -> sent -> won | lost; sent -> draft to fix something (Quote::MOVES). */
+    /** The dealer's moves: draft -> sent, and sent -> draft to fix something (Quote::MOVES). */
     public function status(Request $request, int $quote): JsonResponse
     {
-        $q = Quote::findOrFail($quote);
-        $to = $request->validate(['status' => ['required', Rule::in(array_keys(Quote::MOVES))]])['status'];
+        $q = self::visible()->findOrFail($quote);
+        $to = $request->validate(['status' => ['required', Rule::in(Quote::STATUSES)]])['status'];
 
+        if (in_array($to, Quote::OUTCOMES, true)) {
+            throw ValidationException::withMessages(['status' => "{$q->manufacturer->name} marks quotes won or lost."]);
+        }
         if (! in_array($to, Quote::MOVES[$q->status], true)) {
             throw ValidationException::withMessages(['status' => "A {$q->status} quote can't be marked {$to}."]);
         }
@@ -132,17 +139,43 @@ class QuoteController extends Controller
         }
 
         $q->status = $to;
-        $q->sent_at = $to === Quote::SENT ? now() : ($to === Quote::DRAFT ? null : $q->sent_at);
-        $q->decided_at = in_array($to, [Quote::WON, Quote::LOST], true) ? now() : null;
+        $q->sent_at = $to === Quote::SENT ? now() : null;
+        $q->decided_at = null;
         $q->save();
 
         return response()->json(self::detail($q));
     }
 
+    /**
+     * The manufacturer closes a sent quote: won or lost (feature close_quotes).
+     * A won quote becomes a sales order, in the same transaction. Either way
+     * it leaves the dealer's view. Final - there's no reopening it.
+     */
+    public function outcome(Request $request, int $quote): JsonResponse
+    {
+        $q = self::visible()->findOrFail($quote);
+        $to = $request->validate(['status' => ['required', Rule::in(Quote::OUTCOMES)]])['status'];
+
+        DB::transaction(function () use ($q, $to, $request) {
+            // Locked and re-read, so two people clicking Won at once make one order, not two.
+            $fresh = Quote::whereKey($q->id)->lockForUpdate()->firstOrFail();
+            if ($fresh->status !== Quote::SENT) {
+                throw ValidationException::withMessages(['status' => "This quote is already marked {$fresh->status}."]);
+            }
+
+            $q->forceFill(['status' => $to, 'decided_at' => now()])->save();
+            if ($to === Quote::WON) {
+                SalesOrder::fromQuote($q, $request->user());
+            }
+        });
+
+        return response()->json(self::detail($q->fresh()));
+    }
+
     /** A new draft with the same customer and lines, priced from today's list. */
     public function copy(Request $request, int $quote): JsonResponse
     {
-        $original = Quote::with('lines')->findOrFail($quote);
+        $original = self::visible()->with('lines')->findOrFail($quote);
         $request->merge([
             'customer' => $original->customer,
             'notes' => $original->notes,
@@ -163,7 +196,7 @@ class QuoteController extends Controller
 
     public function destroy(int $quote): JsonResponse
     {
-        $q = Quote::findOrFail($quote);
+        $q = self::visible()->findOrFail($quote);
         $this->assertDraft($q);
         $q->delete();
 
@@ -176,14 +209,16 @@ class QuoteController extends Controller
      * Lines as sent -> lines to store, with prices from $list. A model or
      * option takes its list price unless the dealer typed one; "price on
      * request" needs a typed price. Custom lines need a description and price.
+     * Models and options must be in a product line the dealer carries.
      *
      * @return array{0: list<array>, 1: int} [lines, subtotal cents]
      */
     private function priceLines(array $input, ?PriceList $list): array
     {
         $prices = $list?->priceMap() ?? [];
-        $models = ProductModel::whereIn('id', collect($input)->where('kind', 'model')->pluck('item_id'))->get()->keyBy('id');
-        $options = ProductOption::with('productModel')->whereIn('id', collect($input)->where('kind', 'option')->pluck('item_id'))->get()->keyBy('id');
+        $carried = Tenant::current()->dealerLink()?->productLineIds();
+        $models = ProductModel::with('productLine')->whereIn('id', collect($input)->where('kind', 'model')->pluck('item_id'))->get()->keyBy('id');
+        $options = ProductOption::with('productModel.productLine')->whereIn('id', collect($input)->where('kind', 'option')->pluck('item_id'))->get()->keyBy('id');
 
         $errors = [];
         $lines = [];
@@ -208,6 +243,12 @@ class QuoteController extends Controller
                     continue;
                 }
                 $description = $kind === 'model' ? $item->name : $item->productModel->name.' - '.$item->name;
+                $line = $kind === 'model' ? $item->productLine : $item->productModel->productLine;
+                if ($carried !== null && ! in_array($line->id, $carried, true)) {
+                    $errors["lines.$i.item_id"] = "$description is in the {$line->name} line, which your dealership doesn't carry for ".Tenant::current()->manufacturer()->name.'.';
+
+                    continue;
+                }
                 $listPrice = $prices[($kind === 'model' ? PriceListItem::MODEL : PriceListItem::OPTION).':'.$item->id] ?? null;
                 $unit ??= $listPrice;
                 if ($unit === null) {
@@ -365,6 +406,28 @@ class QuoteController extends Controller
             // Only the dealer, and only a draft.
             'can_edit' => $tenant->isDealer() && $q->isDraft(),
             'can_change_status' => $tenant->isDealer(),
+            // The manufacturer's call, once it's with the customer.
+            'can_close' => $q->status === Quote::SENT && ! $tenant->isDealer()
+                && Features::allows($tenant->manufacturer(), $tenant->membership(), 'close_quotes'),
+            'sales_order' => self::salesOrderOf($q),
         ];
+    }
+
+    /** The order a won quote became - only for staff who can see sales orders. */
+    private static function salesOrderOf(Quote $q): ?array
+    {
+        $tenant = Tenant::current();
+        if ($q->status !== Quote::WON || $tenant->isDealer() || ! Features::allows($tenant->manufacturer(), $tenant->membership(), 'sales_orders')) {
+            return null;
+        }
+        $order = $q->salesOrder;
+
+        return $order ? ['id' => $order->id, 'number' => $order->label(), 'status' => $order->status] : null;
+    }
+
+    /** Quotes in the statuses the signed-in person sees (Quote::visibleStatuses), on top of the dealer scope. */
+    private static function visible(): Builder
+    {
+        return Quote::query()->whereIn('status', Quote::visibleStatuses());
     }
 }

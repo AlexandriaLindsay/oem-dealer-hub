@@ -25,7 +25,7 @@ export function TerritoriesPage() {
     try {
       await run()
     } catch (e) {
-      setSaveError(e instanceof ApiError ? e.message : 'Could not reach DealerDock.')
+      setSaveError(e instanceof ApiError ? e.message : 'Could not reach OEM Dealer Hub.')
     }
     reload()
   }
@@ -161,7 +161,7 @@ function TerritoryCard({ territory, reps, onSave, slug }: { territory: Territory
       setRenameError(null)
       onSave(async () => {})
     } catch (err) {
-      setRenameError(err instanceof ApiError ? (err.field('name') ?? err.message) : 'Could not reach DealerDock.')
+      setRenameError(err instanceof ApiError ? (err.field('name') ?? err.message) : 'Could not reach OEM Dealer Hub.')
     }
   }
 

@@ -16,6 +16,8 @@ import { BillingPage } from './pages/BillingPage'
 import { CatalogPage, PriceListPage, PriceListsPage } from './pages/PricingPages'
 import { QuotePage, QuotePrintPage, QuotesPage } from './pages/QuotePages'
 import { NewPartsOrderPage, PartsOrderPage, PartsOrdersPage } from './pages/PartsOrderPages'
+import { SalesOrderPage, SalesOrdersPage } from './pages/SalesOrderPages'
+import { IntegrationsPage } from './pages/IntegrationsPage'
 import { AnnouncementPage, AnnouncementsPage, BroadcastPage, BroadcastsPage } from './pages/BroadcastPages'
 import { LandingPage, PricingPage } from './pages/PublicPages'
 import { AcceptTermsPage, PrivacyPage, TermsPage } from './pages/LegalPages'
@@ -59,6 +61,19 @@ function GuestOnly({ children }: { children: ReactNode }) {
 function Home() {
   const { me } = useAuth()
   const first = me?.manufacturers[0]
+
+  // OEM Dealer Hub staff who don't work for a manufacturer go to the staff console.
+  if (!first && me?.user.console_url) {
+    return (
+      <main className="auth">
+        <div className="auth-card">
+          <h1>Staff console</h1>
+          <p className="lede">Your account is for OEM Dealer Hub staff. Customers' accounts, people and dealers are in the staff console.</p>
+          <a className="button-primary" href={me.user.console_url}>Open the staff console</a>
+        </div>
+      </main>
+    )
+  }
 
   if (!first) {
     return (
@@ -126,6 +141,9 @@ export default function App() {
             <Route path="parts-orders" element={<PartsOrdersPage />} />
             <Route path="parts-orders/new" element={<NewPartsOrderPage />} />
             <Route path="parts-orders/:id" element={<PartsOrderPage />} />
+            <Route path="sales-orders" element={<SalesOrdersPage />} />
+            <Route path="sales-orders/:id" element={<SalesOrderPage />} />
+            <Route path="integrations" element={<IntegrationsPage />} />
             <Route path="broadcasts" element={<BroadcastsPage />} />
             <Route path="usage" element={<UsagePage />} />
             <Route path="territories" element={<TerritoriesPage />} />

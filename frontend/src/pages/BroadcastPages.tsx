@@ -8,7 +8,7 @@ import { Loading } from '../components/AddForm'
 import { Field, FormError } from '../components/Form'
 
 function asApiError(e: unknown): ApiError {
-  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' })
+  return e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' })
 }
 
 // ---- Staff: send and look back ----
@@ -29,7 +29,7 @@ export function BroadcastsPage() {
           </button>
         )}
       </div>
-      <p className="lede">Announcements to your dealers. They see them under Announcements in DealerDock, and by email if you choose.</p>
+      <p className="lede">Announcements to your dealers. They see them under Announcements in OEM Dealer Hub, and by email if you choose.</p>
 
       {composing && <Compose slug={slug} onCancel={() => setComposing(false)} onSent={(id) => navigate(String(id))} />}
 

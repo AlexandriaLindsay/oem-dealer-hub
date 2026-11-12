@@ -45,7 +45,7 @@ export function AddForm<T = unknown>(props: {
       form.reset()
       props.onAdded(result)
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError(0, { message: 'Could not reach DealerDock.' }))
+      setError(err instanceof ApiError ? err : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' }))
     } finally {
       setBusy(false)
     }

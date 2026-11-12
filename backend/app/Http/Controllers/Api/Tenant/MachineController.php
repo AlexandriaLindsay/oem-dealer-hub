@@ -133,6 +133,10 @@ class MachineController extends Controller
             'built_at' => $m->built_at?->toDateString(),
             'shipped_at' => $m->shipped_at?->toDateString(),
             'updated_at' => $m->updated_at?->toIso8601String(),
+            // How long it's been waiting to sell where it is; null once sold or rented out.
+            'days_in_stock' => $m->daysInStock(),
+            // The last time the dealer confirmed it on their lot (a stock check).
+            'confirmed_at' => $m->confirmed_at?->toIso8601String(),
         ];
     }
 

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Phase 2: billing with Stripe through Laravel Cashier (docs/PLAN.md section 2).
  *
- * Cashier's own migrations assume the user pays. In DealerDock the
+ * Cashier's own migrations assume the user pays. In OEM Dealer Hub the
  * manufacturer pays - so the Stripe customer columns go on manufacturers
  * (which already has trial_ends_at, the column Cashier expects), and
  * subscriptions belong to a manufacturer_id instead of a user_id.

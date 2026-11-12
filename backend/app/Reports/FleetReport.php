@@ -10,6 +10,7 @@ use DateTimeInterface;
 use OpenSpout\Common\Entity\Cell;
 use OpenSpout\Common\Entity\Cell\DateTimeCell;
 use OpenSpout\Common\Entity\Cell\EmptyCell;
+use OpenSpout\Common\Entity\Cell\NumericCell;
 use OpenSpout\Common\Entity\Cell\StringCell;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Style;
@@ -70,6 +71,66 @@ final class FleetReport
             // Largest first, then by name, so the order is stable between visits.
             'by_dealer' => $dealers->sortBy([['total', 'desc'], ['name', 'asc']])->values()->all(),
             'by_model' => $modelRows->sortBy([['total', 'desc'], ['name', 'asc']])->values()->all(),
+            'aging' => $this->aging($dealerNames->all(), $factory),
+        ];
+    }
+
+    /**
+     * How long unsold machines have been sitting (Machine::UNSOLD,
+     * Machine::AGE_BANDS), per dealer: a count per band and the oldest. The
+     * dealers holding the oldest stock first - they're the ones to call.
+     *
+     * @param  array<int, string>  $dealerNames
+     * @return array{bands: list<string>, totals: list<int>, by_dealer: list<array{id: int|null, name: string, counts: list<int>, total: int, oldest_days: int}>}
+     */
+    private function aging(array $dealerNames, string $factory): array
+    {
+        $today = now()->startOfDay();
+        $bandOf = function (int $days): int {
+            foreach (Machine::AGE_BANDS as $i => [$from, $to]) {
+                if ($days >= $from && ($to === null || $days <= $to)) {
+                    return $i;
+                }
+            }
+
+            return count(Machine::AGE_BANDS) - 1;
+        };
+        $empty = array_fill(0, count(Machine::AGE_BANDS), 0);
+
+        $rows = Machine::filter($this->filters)->whereIn('status', Machine::UNSOLD)
+            ->selectRaw('dealer_link_id, '.Machine::stockSinceSql().' as since')->toBase()->get();
+
+        $byDealer = [];
+        $totals = $empty;
+        foreach ($rows as $row) {
+            $days = $row->since ? max(0, (int) now()->parse($row->since)->startOfDay()->diffInDays($today)) : 0;
+            $key = (string) ($row->dealer_link_id ?? '');
+            $byDealer[$key] ??= ['counts' => $empty, 'oldest_days' => 0];
+            $byDealer[$key]['counts'][$bandOf($days)]++;
+            $byDealer[$key]['oldest_days'] = max($byDealer[$key]['oldest_days'], $days);
+            $totals[$bandOf($days)]++;
+        }
+
+        // Names for dealers that only have unsold stock in this result.
+        $missing = array_diff(array_filter(array_keys($byDealer)), array_keys($dealerNames));
+        if ($missing) {
+            $dealerNames += DealerLink::with('dealer')->whereIn('id', $missing)->get()->mapWithKeys(fn (DealerLink $l) => [$l->id => $l->dealer->name])->all();
+        }
+
+        $dealers = collect($byDealer)->map(fn ($d, $id) => [
+            'id' => $id === '' ? null : (int) $id,
+            'name' => $id === '' ? 'At the factory ('.$factory.')' : ($dealerNames[(int) $id] ?? 'Unknown dealer'),
+            'counts' => $d['counts'],
+            'total' => array_sum($d['counts']),
+            'oldest_days' => $d['oldest_days'],
+            // Over 180 days: what the list is sorted by.
+            'aged' => $d['counts'][2] + $d['counts'][3],
+        ]);
+
+        return [
+            'bands' => array_column(Machine::AGE_BANDS, 2),
+            'totals' => $totals,
+            'by_dealer' => $dealers->sortBy([['aged', 'desc'], ['oldest_days', 'desc'], ['name', 'asc']])->values()->all(),
         ];
     }
 
@@ -86,6 +147,7 @@ final class FleetReport
         $options->setColumnWidth(28, 6);
         $options->setColumnWidth(12, 7, 8, 9);
         $options->setColumnWidth(20, 10);
+        $options->setColumnWidth(14, 11);
 
         $writer = new Writer($options);
         $writer->openToFile($path);
@@ -97,7 +159,7 @@ final class FleetReport
         $bold = (new Style)->setFontBold();
         $writer->addRow(Row::fromValues([
             'Serial number', 'Production number', 'Product line', 'Model', 'Status',
-            'Dealer', 'Dealer code', 'Built', 'Shipped', 'Last changed (UTC)',
+            'Dealer', 'Dealer code', 'Built', 'Shipped', 'Last changed (UTC)', 'Days in stock',
         ], $bold));
 
         $date = (new Style)->setFormat('yyyy-mm-dd');
@@ -122,6 +184,8 @@ final class FleetReport
                 self::date($m->built_at, $date),
                 self::date($m->shipped_at, $date),
                 self::date($m->updated_at, $dateTime),
+                // A number, so it sorts and filters in Excel; empty once sold or rented.
+                $m->daysInStock() === null ? new EmptyCell(null, null) : new NumericCell($m->daysInStock(), null),
             ]));
             $rows++;
         }

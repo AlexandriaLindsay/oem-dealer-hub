@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * One manufacturer's relationship with one dealer. Tenant-owned.
@@ -15,6 +16,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Staff limited by territories only see the dealers in their territories
  * (App\Support\Territories) - a global scope, named "dealer" like the one on
  * dealer-owned data, so withoutTenant() lifts both.
+ *
+ * The product lines a dealer carries limit what they can price and quote.
+ * None chosen means every line (see productLineIds).
  */
 class DealerLink extends Model
 {
@@ -52,5 +56,28 @@ class DealerLink extends Model
     public function territory(): BelongsTo
     {
         return $this->belongsTo(Territory::class);
+    }
+
+    /** The lines this dealer carries. Set only through DealerController::productLines. */
+    public function productLines(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductLine::class, 'dealer_product_lines')->withPivot('manufacturer_id');
+    }
+
+    /**
+     * The ids of the lines this dealer carries, or null for every line.
+     * "None chosen" means every line, so a manufacturer with one line (or a
+     * dealer who sells them all) never has to set anything, and a new line
+     * shows up for those dealers without anyone remembering to tick it.
+     *
+     * @return list<int>|null
+     */
+    public function productLineIds(): ?array
+    {
+        $ids = $this->relationLoaded('productLines')
+            ? $this->productLines->pluck('id')
+            : $this->productLines()->pluck('product_lines.id');
+
+        return $ids->isEmpty() ? null : $ids->map(fn ($id) => (int) $id)->sort()->values()->all();
     }
 }

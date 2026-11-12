@@ -100,6 +100,20 @@ final class Features
             'label' => 'Write quotes',
             'roles' => ['dealer_admin', 'dealer_user'],
         ],
+        // Whether a sent quote was won or lost is the manufacturer's call; the dealer stops seeing it then.
+        'close_quotes' => [
+            'label' => 'Mark quotes won or lost',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales'],
+        ],
+        // A won quote becomes a sales order. Manufacturer staff only - finance reads them for invoicing.
+        'sales_orders' => [
+            'label' => 'Sales orders',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'finance'],
+        ],
+        'manage_sales_orders' => [
+            'label' => 'Work sales orders (production, shipping)',
+            'roles' => ['owner', 'admin', 'inside_sales'],
+        ],
         // Dealers see their own orders (PartsOrder's dealer scope); the parts desk sees all.
         'parts_orders' => [
             'label' => 'Parts orders',
@@ -148,8 +162,12 @@ final class Features
         'usage_analytics' => ['label' => 'Usage analytics', 'roles' => ['owner', 'admin']],
         // Managing territories. Being limited by one needs no feature - see App\Support\Territories.
         'territories' => ['label' => 'Territories', 'roles' => ['owner', 'admin']],
-        'custom_branding' => ['label' => 'Own subdomain and colours', 'roles' => ['owner', 'admin'], 'coming' => true],
-        'erp_integration' => ['label' => 'ERP integration (quoted separately)', 'roles' => ['owner', 'admin'], 'coming' => true],
+        // Your brand's colour across the app, for staff and dealers (App\Http\Controllers\Api\Tenant\SetupController::brand).
+        'custom_branding' => ['label' => 'Your own colours', 'roles' => ['owner', 'admin']],
+        // acme.dealerdock... - needs DNS and hosting decided first.
+        'custom_domain' => ['label' => 'Your own subdomain', 'roles' => ['owner', 'admin'], 'coming' => true],
+        // Self-serve: API keys, webhooks and matching numbers (IntegrationController). Hands-on setup is still quoted separately.
+        'erp_integration' => ['label' => 'Connect your ERP (API and webhooks)', 'roles' => ['owner', 'admin']],
     ];
 
     public static function allows(Manufacturer $manufacturer, Membership $membership, string $feature): bool

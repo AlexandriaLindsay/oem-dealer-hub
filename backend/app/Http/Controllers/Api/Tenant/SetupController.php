@@ -90,6 +90,24 @@ class SetupController extends Controller
         return response()->json(['logo_url' => $manufacturer->logoUrl()], 201);
     }
 
+    /**
+     * The brand's colour (Pro), or null for OEM Dealer Hub's blue. Any colour is
+     * accepted: the app darkens or lightens it as needed so text on and
+     * around it stays readable (frontend/src/lib/brand.ts).
+     */
+    public function brand(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'brand_color' => ['present', 'nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+        ], [
+            'brand_color.regex' => 'Use a colour like #1d4ed8.',
+        ]);
+        $manufacturer = Tenant::current()->manufacturer();
+        $manufacturer->forceFill(['brand_color' => $data['brand_color'] ? strtolower($data['brand_color']) : null])->save();
+
+        return response()->json(['brand_color' => $manufacturer->brand_color]);
+    }
+
     public function destroyLogo(): JsonResponse
     {
         $manufacturer = Tenant::current()->manufacturer();

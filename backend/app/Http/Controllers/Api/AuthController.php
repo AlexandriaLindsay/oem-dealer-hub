@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Manufacturer;
 use App\Models\Membership;
+use App\Models\TrustedBrowser;
 use App\Models\User;
+use App\Support\EmailCodes;
 use App\Support\Plan;
 use App\Support\Turnstile;
 use App\Support\TwoFactor;
@@ -81,14 +83,27 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => 'That email and password don\'t match.']);
         }
 
-        if ($user->hasTwoFactor()) {
+        // A browser they said to remember: the password is enough here.
+        $trusted = $user->hasTwoFactor() ? TrustedBrowser::find($user, $request->cookie(TrustedBrowser::COOKIE)) : null;
+        if ($trusted) {
+            $trusted->forceFill(['last_used_at' => now()])->save();
+        }
+
+        if ($user->hasTwoFactor() && ! $trusted) {
             $request->session()->put('login.pending', [
                 'id' => $user->id,
                 'remember' => (bool) ($data['remember'] ?? false),
-                'expires' => now()->addMinutes(5)->timestamp,
+                // Long enough to fetch an emailed code.
+                'expires' => now()->addMinutes(10)->timestamp,
             ]);
 
-            return response()->json(['two_factor' => true]);
+            $method = $user->twoFactorMethod();
+            // Email-code people get their code straight away.
+            if ($method === 'email') {
+                app(EmailCodes::class)->send($user);
+            }
+
+            return response()->json(['two_factor' => true, 'method' => $method, 'email' => EmailCodes::mask($user->email)]);
         }
 
         Auth::guard('web')->login($user, (bool) ($data['remember'] ?? false));
@@ -97,10 +112,50 @@ class AuthController extends Controller
         return $this->me($request);
     }
 
-    /** The second step: the authenticator code. */
-    public function twoFactorChallenge(Request $request, TwoFactor $twoFactor): JsonResponse
+    /** "Email me a code": for email-code people (again), or app users without their phone. */
+    public function emailCode(Request $request, EmailCodes $codes): JsonResponse
     {
-        $data = $request->validate(['code' => ['required', 'string']]);
+        $user = $this->pendingUser($request);
+        if (! $codes->send($user)) {
+            throw ValidationException::withMessages(['code' => 'A code was sent just now. Wait a minute, then ask again.']);
+        }
+
+        return response()->json(['sent' => true, 'email' => EmailCodes::mask($user->email)]);
+    }
+
+    /**
+     * The second step: a code from the authenticator app, or from the email.
+     * "Remember this browser" skips this step on this browser for 30 days.
+     */
+    public function twoFactorChallenge(Request $request, TwoFactor $twoFactor, EmailCodes $codes): JsonResponse
+    {
+        $data = $request->validate(['code' => ['required', 'string'], 'remember_browser' => ['boolean']]);
+        $user = $this->pendingUser($request);
+        $pending = $request->session()->get('login.pending');
+
+        $ok = ($user->hasAuthenticatorApp() && $twoFactor->verify($user, $user->two_factor_secret, $data['code']))
+            || $codes->verify($user, $data['code']);
+        if (! $ok) {
+            throw ValidationException::withMessages(['code' => $user->twoFactorMethod() === 'email'
+                ? 'That code isn\'t right. Check the latest email from OEM Dealer Hub, or ask for a new code.'
+                : 'That code isn\'t right. Check your authenticator app and try again.']);
+        }
+
+        $request->session()->forget('login.pending');
+        Auth::guard('web')->login($user, $pending['remember']);
+        $request->session()->regenerate();
+
+        $response = $this->me($request);
+        if ($data['remember_browser'] ?? false) {
+            $response->withCookie(TrustedBrowser::remember($user, $request->userAgent()));
+        }
+
+        return $response;
+    }
+
+    /** Whoever passed the password step in this session, within the last 10 minutes. */
+    private function pendingUser(Request $request): User
+    {
         $pending = $request->session()->get('login.pending');
         $user = $pending && $pending['expires'] > now()->timestamp ? User::find($pending['id']) : null;
 
@@ -109,15 +164,7 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['code' => 'Sign-in timed out. Enter your email and password again.']);
         }
 
-        if (! $twoFactor->verify($user, $user->two_factor_secret, $data['code'])) {
-            throw ValidationException::withMessages(['code' => 'That code isn\'t right. Check your authenticator app and try again.']);
-        }
-
-        $request->session()->forget('login.pending');
-        Auth::guard('web')->login($user, $pending['remember']);
-        $request->session()->regenerate();
-
-        return $this->me($request);
+        return $user;
     }
 
     public function logout(Request $request): JsonResponse
@@ -140,11 +187,14 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'two_factor' => $user->hasTwoFactor(),
+                'two_factor_method' => $user->twoFactorMethod(),
                 'two_factor_required' => (bool) config('dealerdock.require_two_factor'),
                 // Tour keys this person has finished or skipped (Tours).
                 'tours_seen' => array_keys($user->tours_seen ?? []),
                 // The version of the terms they agreed to; the app asks again when it isn't the current one.
                 'terms_version' => $user->terms_version,
+                // OEM Dealer Hub's own people get a link to the staff console.
+                'console_url' => $user->is_platform_staff ? rtrim(config('app.url'), '/').'/admin' : null,
             ],
             'terms_version' => config('dealerdock.legal.version'),
             'manufacturers' => Access::for($user)->map(fn ($c) => Access::describe($c))->values(),
@@ -174,6 +224,8 @@ class AuthController extends Controller
             $request->only('email', 'password', 'token'),
             function (User $user, string $password) {
                 $user->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
+                // A new password: every remembered browser has to pass a code again.
+                $user->trustedBrowsers()->delete();
             },
         );
 

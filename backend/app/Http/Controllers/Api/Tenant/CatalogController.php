@@ -13,7 +13,8 @@ use Illuminate\Http\Request;
  * The price catalog: models and options with their prices.
  *
  * A dealer gets exactly one list - their own, or the default - and never
- * learns any other list exists, let alone its prices. Staff see the default,
+ * learns any other list exists, let alone its prices. They see only the
+ * product lines they carry. Staff see the default,
  * or any list by ?price_list= when they manage pricing.
  */
 class CatalogController extends Controller
@@ -40,7 +41,8 @@ class CatalogController extends Controller
             'price_list' => $tenant->isDealer()
                 ? ['currency' => $list->currency]
                 : ['id' => $list->id, 'name' => $list->name, 'currency' => $list->currency, 'is_default' => $list->is_default],
-            'lines' => PriceListController::catalog($list),
+            // A dealer sees only the product lines they carry.
+            'lines' => PriceListController::catalog($list, $tenant->isDealer() ? $tenant->dealerLink()->productLineIds() : null),
         ]);
     }
 }

@@ -21,7 +21,7 @@ export function useApi<T>(path: string | null, { keepPrevious = false }: { keepP
       setData(await api.get<T>(path))
       setError(null)
     } catch (e) {
-      setError(e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach DealerDock.' }))
+      setError(e instanceof ApiError ? e : new ApiError(0, { message: 'Could not reach OEM Dealer Hub.' }))
     } finally {
       setLoading(false)
     }

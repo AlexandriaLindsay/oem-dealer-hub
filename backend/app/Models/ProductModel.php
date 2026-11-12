@@ -13,7 +13,7 @@ class ProductModel extends Model
 {
     use BelongsToManufacturer, HasFactory;
 
-    protected $fillable = ['product_line_id', 'name', 'category', 'specs'];
+    protected $fillable = ['product_line_id', 'name', 'category', 'specs', 'erp_ref'];
 
     protected function casts(): array
     {

@@ -35,6 +35,6 @@ class BroadcastSent extends Notification implements ShouldQueue
             $mail->line($paragraph);
         }
 
-        return $mail->action('Open in DealerDock', $this->url)->salutation("Sent by {$this->manufacturer} through DealerDock");
+        return $mail->action('Open in OEM Dealer Hub', $this->url)->salutation("Sent by {$this->manufacturer} through OEM Dealer Hub");
     }
 }

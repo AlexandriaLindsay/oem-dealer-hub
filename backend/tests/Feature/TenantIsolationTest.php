@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Integrations\UrlGuard;
+use App\Models\ApiKey;
 use App\Models\Broadcast;
 use App\Models\DealerLink;
 use App\Models\Document;
@@ -18,13 +20,17 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\Registration;
+use App\Models\SalesOrder;
 use App\Models\Territory;
 use App\Models\UsageDay;
+use App\Models\Webhook;
+use App\Models\WebhookDelivery;
 use App\Tenancy\MissingTenantException;
 use App\Tenancy\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -449,14 +455,145 @@ class TenantIsolationTest extends TestCase
             });
         }
         $boltQuote = $this->actingAs($this->dealerUser($boltDealer))->postJson('/api/m/bolt/quotes', ['customer' => ['contact_name' => 'Bolt customer']])->json('id');
+        // Sent, so it's a quote manufacturer staff would see - if it were theirs.
+        Quote::withoutTenant()->find($boltQuote)->forceFill(['status' => Quote::SENT])->save();
         $acmeUser = $this->dealerUser($acmeDealer);
 
+        $this->actingAs($this->staff($bolt))->getJson('/api/m/bolt/quotes')->assertJsonPath('total', 1);
         $this->actingAs($this->staff($acme))->getJson('/api/m/acme/quotes')->assertJsonPath('total', 0);
         $this->actingAs($this->staff($acme))->getJson("/api/m/acme/quotes/{$boltQuote}")->assertNotFound();
+        $this->actingAs($this->staff($acme))->postJson("/api/m/acme/quotes/{$boltQuote}/outcome", ['status' => 'won'])->assertNotFound();
+        $this->assertSame(Quote::SENT, Quote::withoutTenant()->find($boltQuote)->status);
         // An Acme quote can't use Bolt's model.
         $this->actingAs($acmeUser)->postJson('/api/m/acme/quotes', [
             'customer' => ['contact_name' => 'X'], 'lines' => [['kind' => 'model', 'item_id' => $boltModel->id, 'quantity' => 1, 'unit_price' => '1']],
         ])->assertUnprocessable()->assertJsonValidationErrors('lines.0.item_id');
+    }
+
+    // ---- Sales orders ----
+
+    public function test_sales_orders_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $boltDealer = $this->dealer('Bolt Dealer', $bolt);
+        Tenant::run($bolt, function () {
+            $list = PriceList::create(['name' => 'US', 'currency' => 'USD']);
+            $list->forceFill(['is_default' => true])->save();
+        });
+        $boltQuote = $this->actingAs($this->dealerUser($boltDealer))->postJson('/api/m/bolt/quotes', ['customer' => ['contact_name' => 'Bolt customer']])->json('id');
+        Quote::withoutTenant()->find($boltQuote)->forceFill(['status' => Quote::SENT])->save();
+        $boltOrder = $this->actingAs($this->staff($bolt))->postJson("/api/m/bolt/quotes/{$boltQuote}/outcome", ['status' => 'won'])->assertOk()->json('sales_order.id');
+        $acmeOwner = $this->staff($acme);
+
+        $this->actingAs($this->staff($bolt))->getJson('/api/m/bolt/sales-orders')->assertJsonPath('total', 1);
+        $this->actingAs($acmeOwner)->getJson('/api/m/acme/sales-orders')->assertJsonPath('total', 0);
+        $this->actingAs($acmeOwner)->getJson("/api/m/acme/sales-orders/{$boltOrder}")->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/sales-orders/{$boltOrder}", ['po_number' => 'Hijacked'])->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/sales-orders/{$boltOrder}/status", ['status' => 'in_production'])->assertNotFound();
+
+        // Acme numbers its own orders from the start, whatever Bolt has.
+        $this->assertSame(SalesOrder::RECEIVED, SalesOrder::withoutTenant()->find($boltOrder)->status);
+        $this->assertNull(SalesOrder::withoutTenant()->find($boltOrder)->po_number);
+    }
+
+    // ---- Integrations: API keys, webhooks, ERP numbers ----
+
+    public function test_integrations_stay_inside_their_manufacturer(): void
+    {
+        Http::fake();
+        $this->app->instance(UrlGuard::class, new UrlGuard(fn (string $host) => ['93.184.216.34']));
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $acmeOwner = $this->staff($acme);
+        $boltOwner = $this->staff($bolt);
+        $boltLink = $this->link($this->dealer('Bolt Dealer', $bolt), $bolt);
+        $boltModel = $this->productModel($bolt, 'B-72');
+
+        // An Acme sales order, and a Bolt key that must never see it.
+        Tenant::run($acme, function () {
+            $list = PriceList::create(['name' => 'US', 'currency' => 'USD']);
+            $list->forceFill(['is_default' => true])->save();
+        });
+        $acmeQuote = $this->actingAs($this->dealerUser($this->dealer('Acme Dealer', $acme)))->postJson('/api/m/acme/quotes', ['customer' => ['contact_name' => 'Acme customer']])->json('id');
+        Quote::withoutTenant()->find($acmeQuote)->forceFill(['status' => Quote::SENT])->save();
+        $acmeOrder = $this->actingAs($acmeOwner)->postJson("/api/m/acme/quotes/{$acmeQuote}/outcome", ['status' => 'won'])->json('sales_order.id');
+        $boltKey = $this->actingAs($boltOwner)->postJson('/api/m/bolt/integrations/api-keys', ['name' => 'Bolt ERP', 'abilities' => ['sales_orders:read']])->json('key');
+
+        $this->withToken($boltKey)->getJson('/api/v1/sales-orders')->assertOk()->assertJsonPath('total', 0);
+        $this->withToken($boltKey)->getJson("/api/v1/sales-orders/{$acmeOrder}")->assertNotFound();
+        $this->withToken($boltKey)->getJson('/api/v1/sales-orders/SO-1001')->assertNotFound();
+
+        // Bolt's keys, webhooks and calls: not listed at Acme, not revoked, changed, tested or retried from there.
+        $boltKeyId = ApiKey::withoutTenant()->where('manufacturer_id', $bolt->id)->value('id');
+        $boltHook = $this->actingAs($boltOwner)->postJson('/api/m/bolt/integrations/webhooks', ['url' => 'https://bolt.example.com/h', 'events' => ['sales_order.created']])->json('id');
+        $boltCall = $this->actingAs($boltOwner)->postJson("/api/m/bolt/integrations/webhooks/{$boltHook}/test")->json('id');
+        WebhookDelivery::withoutTenant()->whereKey($boltCall)->update(['status' => WebhookDelivery::FAILED]);
+
+        $this->actingAs($acmeOwner)->getJson('/api/m/acme/integrations')
+            ->assertJsonCount(0, 'api_keys')->assertJsonCount(0, 'webhooks')->assertJsonCount(0, 'deliveries');
+        $this->actingAs($acmeOwner)->deleteJson("/api/m/acme/integrations/api-keys/{$boltKeyId}")->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/integrations/webhooks/{$boltHook}", ['url' => 'https://evil.example.com/h'])->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/integrations/webhooks/{$boltHook}/rotate")->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/integrations/webhooks/{$boltHook}/test")->assertNotFound();
+        $this->actingAs($acmeOwner)->deleteJson("/api/m/acme/integrations/webhooks/{$boltHook}")->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/integrations/deliveries/{$boltCall}/retry")->assertNotFound();
+
+        // Acme's sales order never went to Bolt's webhook.
+        $this->assertSame(0, WebhookDelivery::withoutTenant()->where('event', 'sales_order.created')->count());
+
+        // Bolt's dealers and models can't be given ERP numbers from Acme.
+        $this->actingAs($acmeOwner)->getJson('/api/m/acme/integrations/mapping')->assertJsonMissing(['name' => 'Bolt Dealer'])->assertJsonMissing(['name' => 'B-72']);
+        $this->actingAs($acmeOwner)->postJson('/api/m/acme/integrations/mapping', ['dealers' => [$boltLink->id => 'X']])->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson('/api/m/acme/integrations/mapping', ['models' => [$boltModel->id => 'X']])->assertNotFound();
+
+        $this->assertNull(DealerLink::withoutTenant()->find($boltLink->id)->dealer_code);
+        $this->assertNull(ProductModel::withoutTenant()->find($boltModel->id)->erp_ref);
+        $this->assertSame('https://bolt.example.com/h', Webhook::withoutTenant()->find($boltHook)->url);
+        $this->assertNull(ApiKey::withoutTenant()->find($boltKeyId)->revoked_at);
+    }
+
+    public function test_an_erp_writes_only_inside_its_own_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $acmeOwner = $this->staff($acme);
+        $acmeModel = $this->productModel($acme, 'S-400');
+        $this->productModel($bolt, 'B-72');
+        $acmeLink = $this->link($this->dealer('Acme Dealer', $acme), $acme);
+        [$acmeList, $acmeMachine] = Tenant::run($acme, function () use ($acmeModel, $acmeLink) {
+            $acmeModel->update(['erp_ref' => 'ITEM-S400']);
+            $acmeLink->update(['dealer_code' => 'C-1']);
+            $list = PriceList::create(['name' => 'US', 'currency' => 'USD']);
+            $list->forceFill(['is_default' => true])->save();
+
+            return [$list, Machine::add(['product_model_id' => $acmeModel->id, 'serial_no' => 'SHARED-1'], null, null)];
+        });
+        $acmeQuote = $this->actingAs($this->dealerUser($this->dealer('Quoting Dealer', $acme)))->postJson('/api/m/acme/quotes', ['customer' => ['contact_name' => 'X']])->json('id');
+        Quote::withoutTenant()->find($acmeQuote)->forceFill(['status' => Quote::SENT])->save();
+        $acmeOrder = $this->actingAs($acmeOwner)->postJson("/api/m/acme/quotes/{$acmeQuote}/outcome", ['status' => 'won'])->json('sales_order.id');
+
+        $boltKey = $this->actingAs($this->staff($bolt))->postJson('/api/m/bolt/integrations/api-keys', [
+            'name' => 'Bolt ERP', 'abilities' => ['sales_orders:write', 'catalog:read', 'machines:write', 'prices:write'],
+        ])->json('key');
+
+        // Acme's order, price list, model and dealer are simply not there for Bolt's key.
+        $this->withToken($boltKey)->patchJson("/api/v1/sales-orders/{$acmeOrder}", ['status' => 'cancelled', 'cancel_reason' => 'x'])->assertNotFound();
+        $this->withToken($boltKey)->patchJson('/api/v1/sales-orders/SO-1001', ['erp_ref' => 'hijack'])->assertNotFound();
+        $this->withToken($boltKey)->postJson('/api/v1/prices', ['price_list' => $acmeList->id, 'prices' => [['item' => 'ITEM-S400', 'price' => '1']]])->assertNotFound();
+        $this->withToken($boltKey)->getJson('/api/v1/catalog')->assertJsonMissing(['name' => 'Acme Dealer'])->assertJsonMissing(['name' => 'S-400'])->assertJsonPath('price_lists', []);
+        $this->withToken($boltKey)->postJson('/api/v1/machines', ['machines' => [
+            ['serial_no' => 'NEW-1', 'model' => 'ITEM-S400'],
+            ['serial_no' => 'NEW-2', 'model_name' => 'B-72', 'dealer_code' => 'C-1'],
+            // The same serial at Bolt is Bolt's own machine - Acme's is never touched.
+            ['serial_no' => 'SHARED-1', 'model_name' => 'B-72', 'status' => 'sold'],
+        ]])->assertJsonPath('results.0.result', 'error')->assertJsonPath('results.1.result', 'error')->assertJsonPath('results.2.result', 'created');
+
+        $this->assertSame(SalesOrder::RECEIVED, SalesOrder::withoutTenant()->find($acmeOrder)->status);
+        $this->assertNull(SalesOrder::withoutTenant()->find($acmeOrder)->erp_ref);
+        $this->assertSame(0, PriceListItem::withoutTenant()->where('price_list_id', $acmeList->id)->count());
+        $this->assertSame('inventory', Machine::withoutTenant()->find($acmeMachine->id)->status);
+        $this->assertSame($bolt->id, Machine::withoutTenant()->where('serial_no', 'SHARED-1')->where('id', '!=', $acmeMachine->id)->value('manufacturer_id'));
     }
 
     // ---- Parts orders ----
@@ -563,6 +700,47 @@ class TenantIsolationTest extends TestCase
 
         $this->actingAs($rep)->getJson('/api/m/acme/dealers')->assertJsonCount(0);
         $this->actingAs($rep)->getJson('/api/m/bolt/dealers')->assertJsonCount(2);
+    }
+
+    // ---- Dealer product lines ----
+
+    public function test_a_dealers_product_lines_stay_inside_their_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $acmeOwner = $this->staff($acme);
+        $shared = $this->dealer('Prairie Equipment', $acme, $bolt);
+        $acmeLink = $this->link($shared, $acme);
+        $boltLink = $this->link($shared, $bolt);
+        $acmeLine = $this->productModel($acme, 'S-400')->product_line_id;
+        $boltLine = $this->productModel($bolt, 'B-72')->product_line_id;
+
+        // Bolt's dealer link can't be changed from Acme, and Bolt's line can't be given to Acme's dealer.
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/dealers/{$boltLink->id}/product-lines", ['product_line_ids' => [$acmeLine]])->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/dealers/{$acmeLink->id}/product-lines", ['product_line_ids' => [$boltLine]])->assertUnprocessable();
+        $this->assertSame(0, DB::table('dealer_product_lines')->count());
+
+        // Limiting the dealer at Acme leaves their Bolt catalog alone.
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/dealers/{$acmeLink->id}/product-lines", ['product_line_ids' => [$acmeLine]])->assertOk();
+        $this->assertNull(Tenant::run($bolt, fn () => $boltLink->fresh()->productLineIds()));
+    }
+
+    // ---- Branding ----
+
+    public function test_a_brand_colour_is_set_and_seen_only_at_its_own_manufacturer(): void
+    {
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $acmeOwner = $this->staff($acme);
+        $this->actingAs($acmeOwner)->postJson('/api/m/acme/brand', ['brand_color' => '#c8102e'])->assertOk();
+
+        // Not settable at a manufacturer you don't work with - and not even confirmed to exist.
+        $this->actingAs($acmeOwner)->postJson('/api/m/bolt/brand', ['brand_color' => '#00ff00'])->assertNotFound();
+        $this->assertNull($bolt->fresh()->brand_color);
+        // A dealer of both brands sees each one's own colour.
+        $both = $this->dealerUser($this->dealer('Prairie Equipment', $acme, $bolt));
+        $colours = collect($this->actingAs($both)->getJson('/api/me')->json('manufacturers'))->pluck('brand_color', 'slug')->all();
+        $this->assertSame(['acme' => '#c8102e', 'bolt' => null], $colours);
     }
 
     // ---- Usage analytics ----
