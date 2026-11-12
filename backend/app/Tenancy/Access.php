@@ -58,7 +58,44 @@ final class Access
             }
         }
 
+        // OEM Dealer Hub staff can open every other manufacturer as well, to see
+        // what the customer sees. Read-only: ResolveTenant refuses changes in
+        // these, and logs each one opened (StaffAction).
+        if ($user->isActiveStaff()) {
+            foreach (Manufacturer::whereNotIn('id', $contexts->keys())->get() as $manufacturer) {
+                $contexts[$manufacturer->id] = [
+                    'manufacturer' => $manufacturer,
+                    'membership' => self::staffView($user, $manufacturer),
+                    'link' => null,
+                    'staff_view' => true,
+                ];
+            }
+        }
+
         return $contexts->sortBy(fn ($c) => $c['manufacturer']->name);
+    }
+
+    /**
+     * A stand-in membership for a staff view, never saved: the owner's view, so
+     * every page the manufacturer has shows. It has no id, so nothing can hang
+     * off it (territories, overrides).
+     */
+    private static function staffView(User $user, Manufacturer $manufacturer): Membership
+    {
+        $membership = new Membership([
+            'user_id' => $user->id,
+            'org_type' => Membership::MANUFACTURER,
+            'org_id' => $manufacturer->id,
+            'role' => 'owner',
+        ]);
+
+        return $membership->setRelation('user', $user);
+    }
+
+    /** Whether $context is OEM Dealer Hub staff looking in, read-only. */
+    public static function isStaffView(array $context): bool
+    {
+        return $context['staff_view'] ?? false;
     }
 
     /** The user's context at $manufacturer, or null when they have none. */
@@ -90,6 +127,8 @@ final class Access
             'features' => Features::for($m, $context['membership']),
             // The territories this person is limited to (Territories), or null: every dealer.
             'territories' => $context['link'] ? null : Territories::namesFor($m, $context['membership']),
+            // OEM Dealer Hub staff looking in, read-only (the app shows a banner).
+            'staff_view' => self::isStaffView($context),
         ];
     }
 }

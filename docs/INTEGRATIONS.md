@@ -10,6 +10,7 @@ admins under **Integrations**. Hands-on setup by us is still quoted separately.
 |---|---|
 | **API keys** | Their system reads from OEM Dealer Hub (`/api/v1`). One key per system, each limited to what's ticked. |
 | **Webhooks** | We call their address the moment something happens, so their ERP doesn't have to keep asking. |
+| **ERP connection** | For an ERP that has an API but can't call ours: we call theirs. We send new sales orders and fetch order status, prices and machines. |
 | **ERP numbers** | The number their ERP uses for each dealer (`dealer_code`), model and option (`erp_ref`). It goes out with every order, so their system matches records without guessing from names. |
 
 ## Who owns what (decided 2026-11-12)
@@ -57,13 +58,53 @@ POST  /api/v1/prices                   { price_list, prices: [{ item, price }] }
   list page: one unknown item, duplicate number or bad price, and nothing is
   saved, with every problem listed. `null` means "price on request".
 - **Echoes:** a change made through an API key still fires webhooks, with
-  `"source": "api"` (otherwise `"app"`), so the ERP can ignore its own update.
+  `"source": "api"` (`"erp"` when the ERP connection fetched it, otherwise `"app"`), so the ERP can ignore its own update.
 
 - Lists are oldest change first, 100 to a page, so a sync can keep the newest
   `updated_at` it saw and ask for anything since.
 - 120 requests a minute per key.
 - Errors: `401 invalid_key`, `403 missing_ability`, `403 upgrade_required`
   (not on Pro), `402 account_lapsed`, `404 not_found`, `422` (bad filter).
+
+## The ERP connection (we call their API)
+
+The other direction, for an ERP with a REST API that can't, or won't, call ours.
+Under Integrations → Connect to your ERP's API, they enter the API address, a
+sign-in header and a token (stored encrypted, never sent back), and turn on any of the four syncs.
+Code: `AppIntegrationsErpSync` (the syncs), `ErpClient` (the calls),
+`ErpConnection` (one per manufacturer), `ErpSyncRun` (each run, kept 30 days by `erp-runs:prune`).
+
+| Sync | When | What |
+|---|---|---|
+| `orders_push` | A quote is won (`SalesOrder::fromQuote` → `ErpSync::queuePush`) | POSTs the sales order (`SalesOrderPayload`, the same shape as the API) to their path, with `Idempotency-Key: oemdh-sales-order-<id>`. Reads their order number from the reply (`ref_field`, a dot path) into `erp_ref`. Retried like a webhook, but a 4xx other than 408 or 429 fails at once. Can be sent again from the page. |
+| `order_status` | Every 15 minutes (`erp:sync`) or Sync now | GETs their orders, finds ours by `erp_ref` or by our number (`match`), maps their status words to ours, and moves the order through `SalesOrder::moveTo`. A jump (say, received to delivered) walks the allowed steps (`ErpSync::pathTo`). Unmatched statuses and orders that aren't ours are left alone. |
+| `prices` | The same | GETs prices onto one chosen price list through `PriceSync`: all or nothing, but item numbers we don't have are **skipped**, because an ERP has many more items than a manufacturer sells through dealers. |
+| `machines` | The same | GETs machines and upserts each by serial through `MachineSync`, the same code as `POST /api/v1/machines`, each row on its own. With **"Add models we don't have yet"** (`add_models`, off by default, this sync only), a new machine whose model isn't found adds one: named from `model_name`, else the item number, with the item number as its ERP number, in a "From your ERP" product line. |
+
+**Item numbers and models:** many ERPs give each build its own item number (`1233A_2001_SS`,
+`1233A_2101_ADT_NECK`). So when finding a machine's model (API and ERP connection alike), a model's
+ERP number also covers item numbers that start with it and then `_ - . /` or a space
+(`ProductModel::forItemCode`). An exact match wins, then the longest; `1233A` never takes `1233AB_…`.
+With both `model` and `model_name`, a model with that name is used when the item number finds none.
+Prices still match item numbers exactly, since each build has its own price.
+
+**Mapping, for any JSON API:** each pull has a `path` (`{since}` becomes the last
+run's start minus 2 minutes, ISO 8601 UTC, URL-encoded; `1970-01-01T00:00:00Z` the first time
+or after "Fetch everything again"), `list` (a dot path to the array, empty if the reply is one),
+`next` (a dot path to a next-page link, up to 50 pages; keys with dots, like `@odata.nextLink`, work)
+and `fields` (our field → their dot path). A field that's mapped but missing from an item is left
+out, not nulled, so a missing dealer never sends a machine back to the factory. "Try it" fetches
+the first page and says what each item would do, without writing anything.
+
+**Where it got to:** `erp_connections.state.<sync>.since` moves on after a run that didn't fail,
+including one with row problems, which are listed on the run. Fix the mapping and use "Fetch
+everything again". A failed run doesn't move it, so the next run tries the same range.
+
+**Safety:** `UrlGuard` before every call, no redirects, the token goes **only to the base URL's
+scheme, host and port** (a next-page link elsewhere fails the run), 30-second timeout, 10 MB
+per reply. Header names that would break the request (`Host`, `Content-Type`…) are refused.
+One run of each sync per manufacturer at a time (`RunErpSync` is `ShouldBeUnique`). Only on a plan
+with `erp_integration`, and never for a paused account.
 
 ## Webhooks
 
@@ -101,6 +142,15 @@ use it. **Add fields, never rename or remove them**, because that breaks people'
 integrations. Money is exact strings ("1234.50"). It carries `erp_ref`, `dealer.dealer_code`
 and, on each line, `item.erp_ref`.
 
+## Set up by us (OEM Dealer Hub staff)
+
+For the paid "we set it up for you" service, our staff can make changes on a customer's
+Integrations page: API keys, webhooks, ERP numbers, who's in charge, and the ERP connection.
+Staff looking in are read-only everywhere else. Before changing anything they say why, which opens
+changes for 2 hours. Each change that goes through is logged in the staff console's Activity
+with that reason, and the customer sees a "Changed by OEM Dealer Hub staff" list on the page
+(what, who, when; not the reason). Code: `App\Platform\StaffWriteAccess`, `ResolveTenant`.
+
 ## Safety
 
 - **Keys:** only a SHA-256 hash is stored; the key is shown once. Revoking is
@@ -120,5 +170,5 @@ and, on each line, `item.erp_ref`.
 
 1. **Linking machines to sales orders**, so shipping an order can name the serials that went out.
 2. **More events and endpoints:** parts orders (and their status from the ERP), registrations.
-3. **Ready-made connectors** for the one or two ERPs most customers use, built
+3. **Ready-made connectors** (presets for the ERP connection's settings) for the one or two ERPs most customers use, built
    on this same API, only if demand shows up.

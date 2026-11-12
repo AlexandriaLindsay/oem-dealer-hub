@@ -134,40 +134,83 @@ button svg, a svg { flex: none; }
 .secret summary { cursor: pointer; color: var(--accent); }
 
 /* ---- App shell: a dark sidebar (sticky, full height) and the page ---- */
-.shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); min-height: 100vh; }
-.sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--side-bg); color: var(--side-text); overflow: hidden; border-right: 1px solid var(--side-edge, transparent); }
-.side-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 1.1rem 1.1rem 0.85rem; }
-.side-brand { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
-.side-mark { flex: none; border-radius: 8px; }
-/* Logos are drawn for light backgrounds, so each sits on its own white chip. */
-.side-logo { flex: none; width: 38px; height: 38px; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; padding: 4px; }
-.side-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.side-names { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.side-names strong { color: #fff; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.side-names small { color: var(--side-muted); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shell { --side-w: 256px; display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100vh; transition: grid-template-columns 0.18s ease; }
+/* Folded down to icons (desktop only); labels are hidden and each icon carries a title. */
+.shell.side-collapsed { --side-w: 68px; }
+.side-collapsed .side-text { display: none; }
+.sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: var(--side-bg); color: var(--side-text); border-right: 1px solid var(--side-edge, transparent); }
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 1rem 0.9rem 0.9rem 1.1rem; border-bottom: 1px solid var(--side-line); }
+.side-product { display: flex; align-items: center; gap: 0.6rem; min-width: 0; color: #fff; font-weight: 700; font-size: 0.98rem; letter-spacing: 0.01em; white-space: nowrap; }
+.side-mark { flex: none; border-radius: 7px; }
+.side-collapse { flex: none; display: inline-flex; background: rgb(255 255 255 / 0.06); border: 1px solid var(--side-line); color: var(--side-muted); padding: 0.25rem; border-radius: 6px; }
+.side-collapse:hover { color: #fff; background: var(--side-hover); }
+.side-collapsed .side-head { flex-direction: column; padding: 1rem 0 0.8rem; gap: 0.7rem; }
+.side-collapsed .side-product { justify-content: center; }
 .side-menu-button { display: none; background: none; border: 0; color: #fff; padding: 0.4rem; border-radius: var(--radius); }
-.side-label { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--side-muted); padding: 0 0.75rem; margin: 0 0 0.35rem; }
-.switcher { display: block; padding: 0 1.1rem 0.75rem; }
-.switcher .side-label { padding: 0; }
-.switcher select { width: 100%; background: rgb(255 255 255 / 0.06); color: #fff; border-color: var(--side-line); font-weight: 600; }
-.switcher select option { color: var(--text); background: var(--surface); }
-.side-nav { flex: 1; overflow-y: auto; padding: 0.25rem 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.85rem; scrollbar-width: thin; scrollbar-color: var(--side-line) transparent; }
-.side-group { display: flex; flex-direction: column; gap: 1px; }
-.side-nav a, .side-tour { position: relative; display: flex; align-items: center; gap: 0.75rem; padding: 0.42rem 0.75rem; border-radius: var(--radius); color: var(--side-text); text-decoration: none; font-size: 0.92rem; }
-.side-nav a svg, .side-tour svg { color: var(--side-muted); }
-.side-nav a:hover, .side-tour:hover { background: var(--side-hover); color: #fff; }
-.side-nav a.active { background: var(--side-active); color: #fff; font-weight: 600; }
-.side-nav a.active svg { color: var(--side-accent); }
-/* The current page also gets a bar, so it isn't told by tint alone. */
-.side-nav a.active::before { content: ''; position: absolute; left: -0.6rem; top: 0.45rem; bottom: 0.45rem; width: 3px; border-radius: 0 3px 3px 0; background: var(--side-accent); }
-.side-nav a:focus-visible, .side-tour:focus-visible, .side-signout:focus-visible, .side-menu-button:focus-visible, .switcher select:focus-visible { outline: 2px solid var(--side-accent); outline-offset: 1px; }
-.side-foot { border-top: 1px solid var(--side-line); padding: 0.6rem 0.6rem 0.9rem; }
-.side-tour { width: 100%; background: none; border: 0; font: inherit; font-size: 0.92rem; text-align: left; }
-.side-user { display: flex; align-items: center; gap: 0.7rem; padding: 0.75rem 0.5rem 0; }
+.side-label { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--side-muted); padding: 0 0.75rem; margin: 0 0 0.4rem; }
+
+/* Whose account this is: logo, name, plan. With several brands it opens the switcher. */
+.side-brand-wrap { position: relative; padding: 1rem 0.6rem 0.75rem; }
+.side-brand-card { display: flex; align-items: center; gap: 0.7rem; width: 100%; padding: 0.5rem 0.6rem; border-radius: var(--radius); background: none; border: 0; color: var(--side-text); text-align: left; font: inherit; }
+button.side-brand-card:hover, button.side-brand-card[aria-expanded='true'] { background: var(--side-hover); }
+.side-brand-card > svg { flex: none; margin-left: auto; color: var(--side-muted); }
+.side-collapsed .side-brand-wrap { padding: 0.8rem 0.5rem 0.5rem; }
+.side-collapsed .side-brand-card { justify-content: center; padding: 0.4rem 0; }
+/* Logos are drawn for light backgrounds, so each sits on its own white chip. */
+.side-logo { flex: none; width: 36px; height: 36px; border-radius: 9px; background: #fff; display: flex; align-items: center; justify-content: center; padding: 4px; overflow: hidden; }
+.side-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.side-logo-initials { background: var(--side-accent); color: var(--side-bg); font-weight: 700; font-size: 0.8rem; }
+.side-names { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.side-names strong { color: #fff; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-names small { color: var(--side-muted); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Small menus that open from the sidebar (brand switcher, your menu). */
+.side-pop { position: absolute; z-index: 30; min-width: 220px; background: #232328; border: 1px solid #34343b; border-radius: 10px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.35); padding: 0.35rem; display: flex; flex-direction: column; gap: 1px; }
+/* Slides out to the right of the sidebar, like the arrow on the card says (below it on a phone). */
+.side-pop-brands { top: 1.5rem; left: calc(100% - 0.4rem); max-height: 60vh; overflow-y: auto; }
+.side-pop-user { bottom: calc(100% - 0.3rem); left: 0.6rem; right: 0.6rem; }
+.side-collapsed .side-pop-brands { top: 0.8rem; }
+.side-collapsed .side-pop-user { left: calc(100% - 0.4rem); right: auto; bottom: 0.6rem; }
+.side-pop-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--side-muted); padding: 0.4rem 0.6rem 0.25rem; }
+.side-pop a, .side-pop button { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.45rem 0.6rem; border-radius: 6px; background: none; border: 0; color: var(--side-text); text-decoration: none; font: inherit; font-size: 0.9rem; text-align: left; }
+.side-pop a:hover, .side-pop button:hover { background: rgb(255 255 255 / 0.07); color: #fff; }
+.side-pop button.is-current { color: #fff; font-weight: 600; justify-content: space-between; }
+.side-pop svg { color: var(--side-muted); flex: none; }
+.side-pop .is-current svg { color: var(--side-accent); }
+
+/* The nav: single pages, and groups that fold open with their pages indented underneath. */
+.side-nav { flex: 1; overflow-y: auto; padding: 0.25rem 0 0.75rem; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; scrollbar-color: var(--side-line) transparent; }
+.side-nav a, .side-group-head { position: relative; display: flex; align-items: center; gap: 0.8rem; width: 100%; padding: 0.55rem 1.1rem; color: var(--side-text); text-decoration: none; font: inherit; font-size: 0.92rem; background: none; border: 0; text-align: left; }
+.side-nav a svg, .side-group-head svg { flex: none; color: var(--side-muted); }
+.side-nav a:hover, .side-group-head:hover { background: var(--side-hover); color: #fff; }
+.side-caret { margin-left: auto; transition: transform 0.15s ease; }
+.side-group.is-open .side-caret { transform: rotate(180deg); }
+/* The section you're in: a tinted block with a bar down its left edge, so it isn't told by tint alone. */
+.side-nav > a.active, .side-group.is-active { background: var(--side-active); box-shadow: inset 3px 0 0 var(--side-accent); }
+.side-nav > a.active, .side-group.is-active .side-group-head { color: #fff; font-weight: 600; }
+.side-nav > a.active svg, .side-group.is-active .side-group-head svg { color: var(--side-accent); }
+.side-group.is-active .side-caret { color: #fff; }
+.side-sub { display: flex; flex-direction: column; padding: 0 0 0.4rem; }
+/* Indented to line up with the group's name. */
+.side-sub a { padding: 0.4rem 1.1rem 0.4rem calc(1.1rem + 18px + 0.8rem); font-size: 0.88rem; color: var(--side-muted); }
+.side-sub a.active { color: #fff; font-weight: 600; background: none; }
+.side-collapsed .side-nav a, .side-collapsed .side-group-head { justify-content: center; padding: 0.65rem 0; }
+.side-nav a:focus-visible, .side-group-head:focus-visible, .side-collapse:focus-visible, .side-brand-card:focus-visible, .side-user:focus-visible, .side-pop a:focus-visible, .side-pop button:focus-visible, .side-menu-button:focus-visible { outline: 2px solid var(--side-accent); outline-offset: -2px; }
+
+.side-foot { position: relative; border-top: 1px solid var(--side-line); padding: 0.6rem; }
+.side-user { display: flex; align-items: center; gap: 0.7rem; width: 100%; padding: 0.45rem 0.5rem; border-radius: var(--radius); background: none; border: 0; color: var(--side-text); text-align: left; font: inherit; }
+.side-user:hover, .side-user[aria-expanded='true'] { background: var(--side-hover); }
 .side-user .side-names { flex: 1; }
+.side-user > svg { flex: none; color: var(--side-muted); }
+.side-collapsed .side-user { justify-content: center; padding: 0.45rem 0; }
 .avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; background: #34343b; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.03em; }
-.side-signout { background: none; border: 0; color: var(--side-muted); padding: 0.4rem; border-radius: var(--radius); display: inline-flex; }
-.side-signout:hover { color: #fff; background: var(--side-hover); }
+
+/* The page side: a white bar saying where you are, then the page itself. */
+.page-area { display: flex; flex-direction: column; min-width: 0; }
+.app-bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; min-height: 52px; padding: 0 2.5rem; background: var(--surface); border-bottom: 1px solid var(--border); }
+.crumbs { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--muted); min-width: 0; }
+.crumbs strong { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crumbs svg { flex: none; }
 /* min-width: 0 so a wide table scrolls inside its .table-wrap instead of stretching the page. */
 .content { padding: 2.25rem 2.5rem 3rem; max-width: 1240px; width: 100%; min-width: 0; margin: 0 auto; }
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
@@ -423,6 +466,54 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .badge-parts-shipped { background: var(--ok-soft); color: var(--ok); text-transform: none; }
 .badge-parts-cancelled { background: var(--danger-soft); color: var(--danger); text-transform: none; }
 
+/* ---- Easier sign-in, your account ---- */
+.method-choices { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
+.method-choice { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.75rem; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem; color: var(--text); }
+.method-choice:hover { border-color: var(--accent); }
+.method-choice .muted { grid-column: 1 / -1; }
+.method-choice .badge { align-self: center; }
+.remember-hint { margin: -0.6rem 0 1rem 1.6rem; }
+.code-options { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin: 0.75rem 0 0; }
+.auth-card .code-options .link { display: inline; margin: 0; padding: 0; }
+.browser-current { margin-left: 0.5rem; text-transform: none; }
+
+/* ---- "In stock near you" (embedded on manufacturers' websites) ---- */
+.stock-page { max-width: 880px; margin: 0 auto; padding: 1.5rem 16px 2rem; }
+.stock-page h1 { font-size: 1.6rem; }
+.stock-filters { margin: 1rem 0; }
+.stock-dealers { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.85rem; }
+.stock-dealer { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.7rem; box-shadow: var(--shadow); }
+.stock-dealer-head h2 { margin: 0 0 0.15rem; font-size: 1.05rem; }
+.stock-dealer-head .muted { display: inline-flex; align-items: center; gap: 0.25rem; }
+.stock-models { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
+.stock-models li { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.92rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+.stock-models li:last-child { border-bottom: 0; }
+.stock-models span { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.stock-contact { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: auto; }
+.stock-contact a { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; padding: 0.45rem 0.85rem; }
+.stock-foot { margin-top: 1.25rem; }
+
+/* ---- Stock checks ---- */
+.check-items { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
+.check-items li { display: flex; align-items: center; gap: 0.5rem 1rem; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.8rem; }
+.check-items li.is-here { background: var(--ok-soft); border-color: transparent; }
+.check-items li.is-not_here { background: var(--danger-soft); border-color: transparent; }
+.check-machine { display: flex; flex-direction: column; min-width: 10rem; flex: 1 1 10rem; }
+.check-answer { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600; font-size: 0.9rem; }
+.check-answer.ok { color: var(--ok); }
+.check-answer.bad { color: var(--danger); }
+.check-buttons { display: inline-flex; gap: 0.4rem; margin-left: auto; }
+.check-buttons .secondary { padding: 0.35rem 0.8rem; font-size: 0.88rem; }
+.check-note { display: flex; gap: 0.5rem; align-items: center; flex: 1 1 100%; flex-wrap: wrap; }
+.check-note input { flex: 1 1 220px; }
+.check-bad-count { color: var(--danger); }
+.badge-check-done { background: var(--ok-soft); color: var(--ok); text-transform: none; }
+.badge-check-open { background: var(--accent-soft); color: var(--accent); text-transform: none; }
+.badge-check-expired { background: var(--danger-soft); color: var(--danger); text-transform: none; }
+.auth-card.wide { max-width: 720px; }
+.public-check .stock-check { box-shadow: none; padding: 0; border: 0; margin: 0; }
+.stock-check-callout { border-color: var(--accent); }
+
 /* ---- Aging ---- */
 .chart-note { margin: 0.5rem 0 0; }
 .aging-callout { color: var(--text); }
@@ -469,6 +560,20 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
 .switch input:disabled + .switch-track { opacity: 0.6; }
 .switch > span:last-child { grid-column: 2; }
+
+/* Connect to your ERP's API (ErpConnectionPanel) */
+.erp-form { max-width: 760px; }
+.erp-group { border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem 1rem 1rem; margin: 0 0 1rem; background: var(--surface); min-width: 0; }
+.erp-group legend { padding: 0 0.35rem; }
+.erp-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0 1rem; }
+.erp-form .field input, .erp-form .field select { width: 100%; }
+.erp-form input.mono, .erp-pair input { font-family: ui-monospace, Consolas, monospace; font-size: 0.88rem; }
+.erp-subhead { font-size: 0.9rem; margin: 1rem 0 0.5rem; }
+.erp-pair { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.erp-pair input { flex: 1 1 10rem; min-width: 0; padding: 0.35rem 0.55rem; }
+.erp-preview { margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+.erp-sample { max-height: 18rem; overflow: auto; font-size: 0.82rem; white-space: pre-wrap; word-break: break-word; }
+.erp-problems { margin: 0.35rem 0 0; padding-left: 1.1rem; }
 .inline-h2 { display: inline; margin: 0; }
 details > summary:has(.inline-h2) { cursor: pointer; }
 .it-docs { margin-top: 1rem; max-width: 80ch; }
@@ -618,8 +723,12 @@ table.numeric td:not(:first-child), table.numeric th:not(:first-child) { text-al
   .sidebar { position: sticky; top: 0; z-index: 20; height: auto; max-height: 100vh; }
   .side-head { padding: 0.75rem 16px; }
   .side-menu-button { display: inline-flex; }
-  .shell:not(.menu-open) .switcher, .shell:not(.menu-open) .side-nav, .shell:not(.menu-open) .side-foot { display: none; }
-  .switcher { padding: 0 16px 0.75rem; }
+  .shell:not(.menu-open) .side-brand-wrap, .shell:not(.menu-open) .side-nav, .shell:not(.menu-open) .side-foot { display: none; }
+  .side-head { border-bottom: 0; }
+  .side-collapse { display: none; }
+  .side-brand-wrap { padding: 0 0.6rem 0.75rem; }
+  .side-pop-brands { top: calc(100% - 0.4rem); left: 0.6rem; right: 0.6rem; }
+  .app-bar { display: none; }
   .content { padding: 1.5rem 16px 2.5rem; }
   h1 { font-size: 1.55rem; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -677,6 +786,18 @@ table.numeric td:not(:first-child), table.numeric th:not(:first-child) { text-al
 .link-danger { color: var(--danger); }
 /* "You're seeing dealers in: ..." for a rep limited to territories. */
 .territory-note { margin: 0 0 1rem; font-size: 0.9rem; }
+/* OEM Dealer Hub staff looking into a customer's account, read-only. Theme tokens only, so it works light and dark. */
+.staff-view-note { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 1.25rem; padding: 0.6rem 0.9rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--text); border-radius: var(--radius); font-size: 0.9rem; }
+.staff-view-note svg { flex: none; }
+/* Staff saying why before changing a customer's integrations (StaffIntegrationNotes) */
+.staff-access { margin: 0 0 1.25rem; padding: 0.75rem 0.9rem; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--text); border-radius: var(--radius); }
+.staff-access label { display: flex; gap: 0.5rem; align-items: flex-start; font-weight: 400; font-size: 0.9rem; margin-bottom: 0.6rem; }
+.staff-access label svg { flex: none; margin-top: 0.15rem; }
+.staff-access-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.staff-access-row input { flex: 1 1 16rem; min-width: 0; }
+.staff-changes { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.45rem; }
+.staff-changes li { display: flex; justify-content: space-between; gap: 0.25rem 1rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+.staff-changes li:last-child { border-bottom: 0; padding-bottom: 0; }
 /* On a phone the territory picker matters more than the location. */
 @media (max-width: 600px) {
   .territory-dealers th:nth-child(2), .territory-dealers td:nth-child(2) { display: none; }

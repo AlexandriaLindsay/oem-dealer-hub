@@ -8,6 +8,8 @@ use App\Models\Broadcast;
 use App\Models\DealerLink;
 use App\Models\Document;
 use App\Models\EndUser;
+use App\Models\ErpConnection;
+use App\Models\ErpSyncRun;
 use App\Models\Machine;
 use App\Models\MachineImport;
 use App\Models\Manufacturer;
@@ -21,6 +23,8 @@ use App\Models\ProductOption;
 use App\Models\Quote;
 use App\Models\Registration;
 use App\Models\SalesOrder;
+use App\Models\StockCheck;
+use App\Models\StockCheckItem;
 use App\Models\Territory;
 use App\Models\UsageDay;
 use App\Models\Webhook;
@@ -31,6 +35,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -596,6 +601,37 @@ class TenantIsolationTest extends TestCase
         $this->assertSame($bolt->id, Machine::withoutTenant()->where('serial_no', 'SHARED-1')->where('id', '!=', $acmeMachine->id)->value('manufacturer_id'));
     }
 
+    // ---- Stock checks ----
+
+    public function test_stock_checks_stay_with_their_dealer_and_manufacturer(): void
+    {
+        Notification::fake();
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $prairie = $this->dealer('Prairie Equipment', $acme);
+        $rival = $this->dealer('Rival Equipment', $acme);
+        $prairieLink = $this->link($prairie, $acme);
+        $model = $this->productModel($acme, 'S-400');
+        Tenant::run($acme, fn () => Machine::add(['product_model_id' => $model->id, 'serial_no' => 'LOT-1'], $prairieLink, null));
+        $this->actingAs($this->staff($acme))->postJson('/api/m/acme/stock-checks/start')->assertJsonPath('started', 1);
+        $check = StockCheck::withoutTenant()->firstOrFail();
+
+        // Another dealer at the same manufacturer: not listed, not read, not answered.
+        $rivalUser = $this->dealerUser($rival);
+        $this->actingAs($rivalUser)->getJson('/api/m/acme/stock-checks')->assertJsonPath('open', null)->assertJsonPath('history', []);
+        $this->actingAs($rivalUser)->getJson("/api/m/acme/stock-checks/{$check->id}")->assertNotFound();
+        $this->actingAs($rivalUser)->postJson("/api/m/acme/stock-checks/{$check->id}/confirm-all")->assertNotFound();
+
+        // Another manufacturer: not listed, not read, can't start one for Acme's dealer.
+        $boltOwner = $this->staff($bolt);
+        $this->actingAs($boltOwner)->getJson('/api/m/bolt/stock-checks')->assertJsonPath('dealers', [])->assertJsonPath('not_here', []);
+        $this->actingAs($boltOwner)->getJson("/api/m/bolt/stock-checks/{$check->id}")->assertNotFound();
+        $this->actingAs($boltOwner)->postJson('/api/m/bolt/stock-checks/start', ['dealer_link_id' => $prairieLink->id])->assertNotFound();
+
+        $this->assertSame(StockCheck::OPEN, StockCheck::withoutTenant()->find($check->id)->status);
+        $this->assertSame(0, StockCheckItem::withoutTenant()->whereNotNull('answer')->count());
+    }
+
     // ---- Parts orders ----
 
     public function test_parts_orders_stay_with_their_dealer_and_manufacturer(): void
@@ -972,5 +1008,45 @@ class TenantIsolationTest extends TestCase
         $text = json_encode($history);
         $this->assertStringNotContainsString('Rival', $text);
         $this->assertStringContainsString('Moved from another dealer to Prairie Equipment', $text);
+    }
+    // ---- The ERP connection (OEM Dealer Hub calling their ERP) ----
+
+    public function test_an_erp_connection_stays_inside_its_manufacturer(): void
+    {
+        $this->app->instance(UrlGuard::class, new UrlGuard(fn (string $host) => ['93.184.216.34']));
+        Http::fake(['erp.acme.example/*' => Http::response(['rows' => [['Serial' => 'SHARED-1', 'State' => 'sold']]])]);
+        $acme = $this->manufacturer('acme');
+        $bolt = $this->manufacturer('bolt');
+        $acmeOwner = $this->staff($acme);
+        $boltOwner = $this->staff($bolt);
+        $acmeModel = $this->productModel($acme, 'S-400');
+        $boltModel = $this->productModel($bolt, 'B-72');
+        $this->machine($acme, 'SHARED-1', null, 'inventory', $acmeModel);
+        $boltMachine = $this->machine($bolt, 'SHARED-1', null, 'inventory', $boltModel);
+
+        $settings = ['base_url' => 'https://erp.bolt.example', 'token' => 'bolt-erp-secret-token', 'syncs' => ['orders_push' => ['on' => true, 'path' => '/orders']]];
+        $this->actingAs($boltOwner)->postJson('/api/m/bolt/integrations/erp', $settings)->assertOk();
+        $boltRun = Tenant::run($bolt, function () {
+            $run = new ErpSyncRun;
+            $run->forceFill(['sync' => 'orders_push', 'status' => ErpSyncRun::FAILED])->save();
+
+            return $run;
+        });
+
+        // Bolt's connection, token and runs: not shown at Acme, not tested, retried or removed from there.
+        $this->actingAs($acmeOwner)->getJson('/api/m/acme/integrations/erp')->assertOk()->assertJsonPath('connection', null)->assertJsonCount(0, 'runs')->assertJsonMissing(['base_url' => 'https://erp.bolt.example']);
+        $this->actingAs($acmeOwner)->postJson('/api/m/acme/integrations/erp/test')->assertNotFound();
+        $this->actingAs($acmeOwner)->postJson("/api/m/acme/integrations/erp/runs/{$boltRun->id}/retry")->assertNotFound();
+        $this->actingAs($acmeOwner)->deleteJson('/api/m/acme/integrations/erp')->assertNoContent();
+        $this->assertSame(1, ErpConnection::withoutTenant()->where('manufacturer_id', $bolt->id)->count());
+
+        // Acme's own connection fetches a serial Bolt has too: only Acme's machine changes.
+        $this->actingAs($acmeOwner)->postJson('/api/m/acme/integrations/erp', ['base_url' => 'https://erp.acme.example', 'syncs' => ['machines' => ['on' => true, 'path' => '/m', 'list' => 'rows', 'fields' => ['serial_no' => 'Serial', 'status' => 'State']]]])->assertOk();
+        $this->actingAs($acmeOwner)->postJson('/api/m/acme/integrations/erp/sync/machines')->assertAccepted();
+        $this->assertSame('sold', Machine::withoutTenant()->where('manufacturer_id', $acme->id)->where('serial_no', 'SHARED-1')->value('status'));
+        $this->assertSame('inventory', Machine::withoutTenant()->find($boltMachine->id)->status);
+
+        // Bolt's token never went anywhere.
+        Http::assertNotSent(fn ($r) => $r->hasHeader('Authorization', 'bolt-erp-secret-token') || str_contains($r->url(), 'bolt'));
     }
 }

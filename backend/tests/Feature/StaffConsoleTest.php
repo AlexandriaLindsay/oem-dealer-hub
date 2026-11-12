@@ -71,6 +71,19 @@ class StaffConsoleTest extends TestCase
         $this->actingAs($user)->get('/admin')->assertRedirect(rtrim(config('app.frontend_url'), '/').'/setup-2fa');
     }
 
+    public function test_locally_with_two_factor_off_the_console_skips_it_but_never_in_production(): void
+    {
+        config(['dealerdock.require_two_factor' => false]);
+        $user = User::factory()->create();
+        $user->forceFill(['is_platform_staff' => true])->save();
+
+        $this->app['env'] = 'local';
+        $this->actingAs($user)->get('/admin')->assertOk();
+
+        $this->app['env'] = 'production';
+        $this->actingAs($user)->get('/admin')->assertRedirect(rtrim(config('app.frontend_url'), '/').'/setup-2fa');
+    }
+
     public function test_staff_see_every_page(): void
     {
         $dealer = $this->dealer('Prairie Equipment', $this->acme);

@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One change made in the staff console: who, what, to which account, and the
- * reason they gave. Written by App\Platform\AccountTools, never edited.
+ * One thing OEM Dealer Hub staff did: who, what, to which account, and the
+ * reason they gave. Written by App\Platform\AccountTools (the console) and
+ * App\Platform\StaffWriteAccess (a customer's Integrations page), never edited.
  */
 class StaffAction extends Model
 {
@@ -18,6 +19,9 @@ class StaffAction extends Model
         'set_plan' => 'Set plan',
         'reset_two_factor' => 'Reset two-factor',
         'send_password_reset' => 'Sent password reset',
+        'opened_in_app' => 'Viewed in the app',
+        'integrations_access' => 'Opened integrations for changes',
+        'changed_integrations' => 'Changed integrations',
     ];
 
     protected $fillable = ['user_id', 'staff_name', 'action', 'subject_type', 'subject_id', 'subject_label', 'details', 'note'];

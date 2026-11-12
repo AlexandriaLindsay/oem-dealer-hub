@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LegalController;
+use App\Http\Controllers\Api\PublicStockCheckController;
+use App\Http\Controllers\Api\PublicStockController;
 use App\Http\Controllers\Api\Tenant\BillingController;
 use App\Http\Controllers\Api\Tenant\BroadcastController;
 use App\Http\Controllers\Api\Tenant\CatalogController;
 use App\Http\Controllers\Api\Tenant\DashboardController;
 use App\Http\Controllers\Api\Tenant\DealerController;
 use App\Http\Controllers\Api\Tenant\DocumentController;
+use App\Http\Controllers\Api\Tenant\ErpConnectionController;
 use App\Http\Controllers\Api\Tenant\FleetController;
 use App\Http\Controllers\Api\Tenant\IntegrationController;
 use App\Http\Controllers\Api\Tenant\MachineController;
@@ -20,16 +23,29 @@ use App\Http\Controllers\Api\Tenant\QuoteController;
 use App\Http\Controllers\Api\Tenant\RegistrationController;
 use App\Http\Controllers\Api\Tenant\SalesOrderController;
 use App\Http\Controllers\Api\Tenant\SetupController;
+use App\Http\Controllers\Api\Tenant\StaffAccessController;
 use App\Http\Controllers\Api\Tenant\StaffController;
+use App\Http\Controllers\Api\Tenant\StockCheckController;
 use App\Http\Controllers\Api\Tenant\TerritoryController;
 use App\Http\Controllers\Api\Tenant\UsageController;
 use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\V1;
+use App\Models\ErpConnection;
 use Illuminate\Support\Facades\Route;
 
 // Public: plans, prices and legal details for the landing, pricing and legal pages.
 Route::get('/site', [LegalController::class, 'site']);
+
+// "In stock near you" for a manufacturer's website: counts only, when they've turned it on (PublicStockController).
+Route::get('/public/{slug}/stock', PublicStockController::class)->middleware('throttle:public-stock');
+
+// The stock check link in a dealer's email: no sign-in, the token is the key (PublicStockCheckController).
+Route::middleware('throttle:stock-check-link')->group(function () {
+    Route::get('/stock-check/{token}', [PublicStockCheckController::class, 'show']);
+    Route::post('/stock-check/{token}/confirm-all', [PublicStockCheckController::class, 'confirmAll']);
+    Route::post('/stock-check/{token}/answers', [PublicStockCheckController::class, 'answer']);
+});
 
 // The integration API, for a manufacturer's own systems (docs/INTEGRATIONS.md).
 // An API key, not a person: the key decides the manufacturer (AuthenticateApiKey).
@@ -142,6 +158,18 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/sales-orders/{order}/status', [SalesOrderController::class, 'status'])->whereNumber('order')->middleware('feature:manage_sales_orders');
 
             // Connecting their ERP: API keys, webhooks, matching numbers (Pro, owner and admin).
+            // Stock checks: dealers confirm what's on their lot (StockChecks support class).
+            Route::get('/stock-checks', [StockCheckController::class, 'index'])->middleware('feature:stock_checks');
+            Route::get('/stock-checks/{check}', [StockCheckController::class, 'show'])->whereNumber('check')->middleware('feature:stock_checks');
+            Route::post('/stock-checks/{check}/answers', [StockCheckController::class, 'answer'])->whereNumber('check')->middleware('feature:stock_checks');
+            Route::post('/stock-checks/{check}/confirm-all', [StockCheckController::class, 'confirmAll'])->whereNumber('check')->middleware('feature:stock_checks');
+            Route::post('/stock-checks/start', [StockCheckController::class, 'start'])->middleware('feature:manage_stock_checks');
+            Route::post('/stock-checks/settings', [StockCheckController::class, 'settings'])->middleware('feature:manage_stock_checks');
+
+            // "In stock near you" on their website (Pro, owner and admin).
+            Route::get('/public-stock', [IntegrationController::class, 'publicStock'])->middleware('feature:public_inventory');
+            Route::post('/public-stock', [IntegrationController::class, 'savePublicStock'])->middleware('feature:public_inventory');
+
             Route::middleware('feature:erp_integration')->group(function () {
                 Route::get('/integrations', [IntegrationController::class, 'index']);
                 Route::post('/integrations/settings', [IntegrationController::class, 'settings']);
@@ -155,6 +183,16 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/integrations/deliveries/{delivery}/retry', [IntegrationController::class, 'retryDelivery'])->whereNumber('delivery');
                 Route::get('/integrations/mapping', [IntegrationController::class, 'mapping']);
                 Route::post('/integrations/mapping', [IntegrationController::class, 'saveMapping']);
+                // The other direction: OEM Dealer Hub calling their ERP's API (ErpSync).
+                Route::get('/integrations/erp', [ErpConnectionController::class, 'show']);
+                Route::post('/integrations/erp', [ErpConnectionController::class, 'save']);
+                Route::delete('/integrations/erp', [ErpConnectionController::class, 'destroy']);
+                Route::post('/integrations/erp/test', [ErpConnectionController::class, 'test']);
+                Route::post('/integrations/erp/preview/{sync}', [ErpConnectionController::class, 'preview'])->whereIn('sync', ErpConnection::PULLS);
+                Route::post('/integrations/erp/sync/{sync}', [ErpConnectionController::class, 'syncNow'])->whereIn('sync', ErpConnection::PULLS);
+                Route::post('/integrations/erp/runs/{run}/retry', [ErpConnectionController::class, 'retry'])->whereNumber('run');
+                // OEM Dealer Hub staff looking in: say why, then make changes here (StaffWriteAccess).
+                Route::post('/staff-access/integrations', [StaffAccessController::class, 'integrations']);
             });
 
             Route::get('/parts-orders', [PartsOrderController::class, 'index'])->middleware('feature:parts_orders');

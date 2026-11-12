@@ -88,10 +88,31 @@ class User extends Authenticatable implements FilamentUser
     /**
      * The staff console: platform staff only, and only with an authenticator
      * app - not email codes, because the console reaches every customer's
-     * account. That holds even where DEALERDOCK_REQUIRE_TWO_FACTOR is off.
+     * account. The one exception is local development with
+     * DEALERDOCK_REQUIRE_TWO_FACTOR=false (consoleSkipsTwoFactor).
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->is_platform_staff && $this->hasAuthenticatorApp();
+        return $this->isActiveStaff();
+    }
+
+    /**
+     * OEM Dealer Hub staff who can use their staff powers right now: the
+     * console, and a read-only view of every manufacturer in the app
+     * (App\Tenancy\Access). Same two-factor rule for both.
+     */
+    public function isActiveStaff(): bool
+    {
+        return $this->is_platform_staff && (self::consoleSkipsTwoFactor() || $this->hasAuthenticatorApp());
+    }
+
+    /**
+     * Two-factor off for the console: only on a developer's machine (APP_ENV
+     * local) with DEALERDOCK_REQUIRE_TWO_FACTOR=false. Never in production,
+     * whatever the setting says.
+     */
+    public static function consoleSkipsTwoFactor(): bool
+    {
+        return app()->environment('local') && ! config('dealerdock.require_two_factor');
     }
 }

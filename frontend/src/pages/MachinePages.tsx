@@ -413,6 +413,10 @@ export function MachinePage() {
           <dt>Shipped</dt>
           <dd>{formatDate(data.shipped_at)}</dd>
         </div>
+        <div>
+          <dt>Confirmed on the lot</dt>
+          <dd>{data.confirmed_at ? formatDate(data.confirmed_at) : <span className="muted">Not yet</span>}</dd>
+        </div>
       </dl>
 
       <div className="two-up">

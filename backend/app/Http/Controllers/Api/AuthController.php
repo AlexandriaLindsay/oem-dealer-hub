@@ -98,12 +98,10 @@ class AuthController extends Controller
             ]);
 
             $method = $user->twoFactorMethod();
-            // Email-code people get their code straight away.
-            if ($method === 'email') {
-                app(EmailCodes::class)->send($user);
-            }
+            // Email-code people get their code straight away; 'sent' says whether it really went.
+            $sent = $method === 'email' && app(EmailCodes::class)->send($user, atSignIn: true);
 
-            return response()->json(['two_factor' => true, 'method' => $method, 'email' => EmailCodes::mask($user->email)]);
+            return response()->json(['two_factor' => true, 'method' => $method, 'email' => EmailCodes::mask($user->email), 'sent' => $sent]);
         }
 
         Auth::guard('web')->login($user, (bool) ($data['remember'] ?? false));

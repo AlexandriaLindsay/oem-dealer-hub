@@ -115,6 +115,16 @@ final class Features
             'roles' => ['owner', 'admin', 'inside_sales'],
         ],
         // Dealers see their own orders (PartsOrder's dealer scope); the parts desk sees all.
+        // Dealers confirm the machines on their lot; staff see who has and what's missing (App\Support\StockChecks).
+        'stock_checks' => [
+            'label' => 'Stock checks',
+            'roles' => ['owner', 'admin', 'sales_rep', 'inside_sales', 'dealer_admin', 'dealer_user'],
+        ],
+        // Starting checks, and the monthly round.
+        'manage_stock_checks' => [
+            'label' => 'Run stock checks',
+            'roles' => ['owner', 'admin', 'inside_sales'],
+        ],
         'parts_orders' => [
             'label' => 'Parts orders',
             'roles' => ['owner', 'admin', 'inside_sales', 'parts', 'dealer_admin', 'dealer_user'],
@@ -166,6 +176,8 @@ final class Features
         'custom_branding' => ['label' => 'Your own colours', 'roles' => ['owner', 'admin']],
         // acme.dealerdock... - needs DNS and hosting decided first.
         'custom_domain' => ['label' => 'Your own subdomain', 'roles' => ['owner', 'admin'], 'coming' => true],
+        // "In stock near you" on their own website: which dealers have which models (PublicStockController).
+        'public_inventory' => ['label' => '"In stock near you" for your website', 'roles' => ['owner', 'admin']],
         // Self-serve: API keys, webhooks and matching numbers (IntegrationController). Hands-on setup is still quoted separately.
         'erp_integration' => ['label' => 'Connect your ERP (API and webhooks)', 'roles' => ['owner', 'admin']],
     ];

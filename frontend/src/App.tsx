@@ -18,6 +18,9 @@ import { QuotePage, QuotePrintPage, QuotesPage } from './pages/QuotePages'
 import { NewPartsOrderPage, PartsOrderPage, PartsOrdersPage } from './pages/PartsOrderPages'
 import { SalesOrderPage, SalesOrdersPage } from './pages/SalesOrderPages'
 import { IntegrationsPage } from './pages/IntegrationsPage'
+import { AccountPage } from './pages/AccountPage'
+import { PublicStockCheckPage, StockChecksPage } from './pages/StockCheckPages'
+import { PublicStockPage } from './pages/PublicStockPage'
 import { AnnouncementPage, AnnouncementsPage, BroadcastPage, BroadcastsPage } from './pages/BroadcastPages'
 import { LandingPage, PricingPage } from './pages/PublicPages'
 import { AcceptTermsPage, PrivacyPage, TermsPage } from './pages/LegalPages'
@@ -112,6 +115,10 @@ export default function App() {
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          {/* The stock check link in a dealer's email: no sign-in. */}
+          <Route path="/stock-check/:token" element={<PublicStockCheckPage />} />
+          {/* "In stock near you", for embedding on a manufacturer's own website. */}
+          <Route path="/stock/:slug" element={<PublicStockPage />} />
           <Route
             path="/m/:slug"
             element={
@@ -144,6 +151,8 @@ export default function App() {
             <Route path="sales-orders" element={<SalesOrdersPage />} />
             <Route path="sales-orders/:id" element={<SalesOrderPage />} />
             <Route path="integrations" element={<IntegrationsPage />} />
+            <Route path="account" element={<AccountPage />} />
+            <Route path="stock-checks" element={<StockChecksPage />} />
             <Route path="broadcasts" element={<BroadcastsPage />} />
             <Route path="usage" element={<UsagePage />} />
             <Route path="territories" element={<TerritoriesPage />} />

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Tenant;
 
+use App\Http\Controllers\Api\PublicStockController;
 use App\Http\Controllers\Controller;
 use App\Integrations\UrlGuard;
 use App\Integrations\Webhooks;
@@ -13,6 +14,7 @@ use App\Models\ProductModel;
 use App\Models\ProductOption;
 use App\Models\Webhook;
 use App\Models\WebhookDelivery;
+use App\Platform\StaffWriteAccess;
 use App\Tenancy\Tenant;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -30,8 +32,11 @@ use Illuminate\Validation\Rule;
  */
 class IntegrationController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $manufacturer = Tenant::current()->manufacturer();
+        $staffAccess = $request->user()->is_platform_staff ? StaffWriteAccess::current($request->user(), $manufacturer) : null;
+
         return response()->json([
             'api_base' => rtrim(config('app.url'), '/').'/api/v1',
             'abilities' => ApiKey::ABILITIES,
@@ -40,6 +45,10 @@ class IntegrationController extends Controller
             'webhooks' => Webhook::orderBy('id')->get()->map(fn (Webhook $w) => self::webhookRow($w))->values(),
             'deliveries' => WebhookDelivery::with('webhook')->orderByDesc('id')->limit(30)->get()->map(fn (WebhookDelivery $d) => self::deliveryRow($d))->values(),
             'erp_owns' => self::erpOwns(),
+            // What OEM Dealer Hub staff changed here lately, so the customer always knows.
+            'staff_changes' => StaffWriteAccess::recentFor($manufacturer),
+            // For staff looking in: until when they can make changes (null: read-only until they say why).
+            'staff_access_until' => $staffAccess['until'] ?? null,
         ]);
     }
 
@@ -56,6 +65,35 @@ class IntegrationController extends Controller
         Tenant::current()->manufacturer()->setErpOwns(array_intersect_key($data['erp_owns'], array_flip(Manufacturer::ERP_OWNABLE)));
 
         return response()->json(['erp_owns' => self::erpOwns()]);
+    }
+
+    /** "In stock near you": on or off, and whether only confirmed stock shows (feature public_inventory). */
+    public function publicStock(): JsonResponse
+    {
+        return response()->json(self::publicStockSettings());
+    }
+
+    public function savePublicStock(Request $request): JsonResponse
+    {
+        $data = $request->validate(['enabled' => ['required', 'boolean'], 'confirmed_only' => ['required', 'boolean']]);
+        $m = Tenant::current()->manufacturer();
+        $m->update(['settings' => array_merge($m->settings ?? [], ['public_inventory' => $data])]);
+
+        return response()->json(self::publicStockSettings());
+    }
+
+    private static function publicStockSettings(): array
+    {
+        $m = Tenant::current()->manufacturer();
+        $base = rtrim(config('app.frontend_url'), '/');
+
+        return [
+            'enabled' => ! empty($m->settings['public_inventory']['enabled']),
+            'confirmed_only' => ! empty($m->settings['public_inventory']['confirmed_only']),
+            'confirmed_days' => PublicStockController::CONFIRMED_DAYS,
+            'page_url' => $base.'/stock/'.$m->slug,
+            'feed_url' => rtrim(config('app.url'), '/').'/api/public/'.$m->slug.'/stock',
+        ];
     }
 
     /** @return array<string, bool> */

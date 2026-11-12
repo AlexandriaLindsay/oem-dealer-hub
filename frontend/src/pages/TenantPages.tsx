@@ -5,7 +5,7 @@ import { api, ApiError, type DealerRow, type PriceListSummary, type ProductModel
 import { useApi } from '../lib/useApi'
 import { useAuth } from '../lib/auth'
 import { StatusDonut } from '../components/charts'
-import { useSlug } from '../lib/tenant'
+import { formatDate, useSlug } from '../lib/tenant'
 import { useCurrentManufacturer } from '../components/Layout'
 import { AddForm, Loading } from '../components/AddForm'
 import { GettingStarted } from './SetupPages'
@@ -21,6 +21,8 @@ interface Dashboard {
   registrations_pending: number
   /** Unsold machines sitting over 180 days. */
   aged_machines: number
+  /** Dealers: a stock check waiting for them. */
+  stock_check?: { id: number; machines: number; unanswered: number; due_on: string } | null
   /** Dealers: announcements this person hasn't opened. */
   announcements_unread?: number
 }
@@ -124,6 +126,11 @@ export function DashboardPage() {
           </div>
         </div>
         <p className="lede">You're signed in as {current?.dealer?.name}, a dealer for {current?.name}.</p>
+        {data.stock_check && data.stock_check.unanswered > 0 && (
+          <div className="callout stock-check-callout" role="status">
+            <strong>Stock check: are these {data.stock_check.machines} machines still on your lot?</strong> {current?.name} asks by {formatDate(data.stock_check.due_on)}. Usually it's one click. <Link to="stock-checks">Check the list</Link>
+          </div>
+        )}
         <div className="kpis">
           {has('machines') && <Kpi icon={Tractor} label="Machines" value={fmt.format(machineTotal)} sub="in your yard and with customers" to="machines" />}
           {has('machines') && <Kpi icon={Hourglass} label="Sitting 180+ days" value={fmt.format(data.aged_machines)} sub="unsold on your lot" to="machines?view=list&aged=180" />}

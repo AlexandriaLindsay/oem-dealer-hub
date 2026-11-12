@@ -7,6 +7,7 @@ use App\Models\DealerLink;
 use App\Models\Machine;
 use App\Models\ProductLine;
 use App\Models\Registration;
+use App\Models\StockCheck;
 use App\Support\Plan;
 use App\Support\Uploads;
 use App\Tenancy\Tenant;
@@ -30,6 +31,8 @@ class DashboardController extends Controller
                 'registrations_pending' => Registration::where('status', Registration::PENDING)->count(),
                 // Announcements sent to their dealership that this person hasn't opened.
                 'announcements_unread' => BroadcastController::unreadCount((int) request()->user()->id),
+                // A stock check waiting for them: how many machines, and by when.
+                'stock_check' => self::openStockCheck(),
             ]);
         }
 
@@ -66,6 +69,14 @@ class DashboardController extends Controller
      *
      * @return array<string, int>
      */
+    /** The dealer's open stock check, if any (StockCheck's dealer scope). */
+    private static function openStockCheck(): ?array
+    {
+        $check = StockCheck::where('status', StockCheck::OPEN)->where('due_on', '>=', now()->toDateString())->withCount(['items', 'items as unanswered_count' => fn ($q) => $q->whereNull('answer')])->latest('id')->first();
+
+        return $check ? ['id' => $check->id, 'machines' => $check->items_count, 'unanswered' => $check->unanswered_count, 'due_on' => $check->due_on->toDateString()] : null;
+    }
+
     private static function machinesByStatus(): array
     {
         $counts = Machine::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');

@@ -30,6 +30,10 @@
         <env name="FRONTEND_URL" value="http://localhost:5173"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Two-factor on in tests, whatever a local .env says (it may turn it off for development). -->
+        <env name="DEALERDOCK_REQUIRE_TWO_FACTOR" value="true"/>
+        <!-- Webhooks and the ERP connection only reach public https addresses in tests, whatever a local .env allows. -->
+        <env name="DEALERDOCK_WEBHOOKS_ALLOW_PRIVATE" value="false"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

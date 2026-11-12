@@ -68,7 +68,7 @@ export function LoginPage() {
   const [params] = useSearchParams()
   const [step, setStep] = useState<'password' | 'code'>('password')
   // How the code comes: their app, or an email ('emailed' once one is on its way, to that address).
-  const [codeBy, setCodeBy] = useState<{ method: 'totp' | 'email'; emailed: string | null }>({ method: 'totp', emailed: null })
+  const [codeBy, setCodeBy] = useState<{ method: 'totp' | 'email'; emailed: string | null; notSent?: boolean }>({ method: 'totp', emailed: null })
   const bot = useBotCheck()
   const { busy, error, run } = useSubmit(bot.reset)
   const resend = useSubmit()
@@ -89,10 +89,10 @@ export function LoginPage() {
     e.preventDefault()
     const v = formValues(e.currentTarget)
     run(async () => {
-      const result = await api.post<Me | { two_factor: true; method: 'totp' | 'email'; email: string }>('/login', { email: v.email, password: v.password, remember: v.remember === 'on', ...bot.field })
+      const result = await api.post<Me | { two_factor: true; method: 'totp' | 'email'; email: string; sent: boolean }>('/login', { email: v.email, password: v.password, remember: v.remember === 'on', ...bot.field })
       if ('two_factor' in result) {
-        // Email-code people already have one on its way.
-        setCodeBy({ method: result.method, emailed: result.method === 'email' ? result.email : null })
+        // Email-code people already have one on its way - unless they've had too many this hour.
+        setCodeBy({ method: result.method, emailed: result.method === 'email' && result.sent ? result.email : null, notSent: result.method === 'email' && !result.sent })
         setStep('code')
       } else {
         signedIn(result)
@@ -112,7 +112,7 @@ export function LoginPage() {
   function emailCode() {
     resend.run(async () => {
       const r = await api.post<{ email: string }>('/login/two-factor/email')
-      setCodeBy((c) => ({ ...c, emailed: r.email }))
+      setCodeBy((c) => ({ ...c, emailed: r.email, notSent: false }))
     })
   }
 
@@ -124,7 +124,11 @@ export function LoginPage() {
             password would show here in plain text and fill the code box. */}
         <form key="code" onSubmit={onCode} noValidate>
           <p className="lede">
-            {byEmail ? `We've emailed a 6-digit code to ${codeBy.emailed}. It works for 10 minutes.` : 'Open your authenticator app and enter the 6-digit code for OEM Dealer Hub.'}
+            {byEmail
+              ? `We've emailed a 6-digit code to ${codeBy.emailed}. It works for 10 minutes.`
+              : codeBy.notSent
+                ? "We've sent a lot of codes this hour, so we couldn't send another just now. Use the latest one you have, or wait a little and choose \"Send a new code\"."
+                : 'Open your authenticator app and enter the 6-digit code for OEM Dealer Hub.'}
           </p>
           <Field label="Code" name="code" error={error} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={7} />
           <label className="check">
@@ -139,7 +143,7 @@ export function LoginPage() {
           </button>
           <p className="small code-options">
             <button type="button" className="link" onClick={emailCode} disabled={resend.busy}>
-              {byEmail ? 'Send a new code' : "Don't have your phone? Email me a code"}
+              {byEmail || codeBy.notSent ? 'Send a new code' : "Don't have your phone? Email me a code"}
             </button>
             <button type="button" className="link" onClick={() => setStep('password')}>
               Use a different account

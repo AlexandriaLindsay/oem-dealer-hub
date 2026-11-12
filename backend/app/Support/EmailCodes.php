@@ -22,12 +22,18 @@ final class EmailCodes
 
     private const TRIES = 5;
 
-    /** Emails a new code. False when they've asked too often - the message says when to try again. */
-    public function send(User $user): bool
+    /**
+     * Emails a new code. False when they've asked too often. $atSignIn: the
+     * code sent automatically after a right password - it skips the
+     * once-a-minute limit (that's for "send me another"), so signing in
+     * again soon after doesn't leave them waiting for an email that never
+     * comes; the hourly cap still applies.
+     */
+    public function send(User $user, bool $atSignIn = false): bool
     {
         $minute = "email-code-send-minute:{$user->id}";
         $hour = "email-code-send-hour:{$user->id}";
-        if (RateLimiter::tooManyAttempts($minute, 1) || RateLimiter::tooManyAttempts($hour, 6)) {
+        if ((! $atSignIn && RateLimiter::tooManyAttempts($minute, 1)) || RateLimiter::tooManyAttempts($hour, 6)) {
             return false;
         }
         RateLimiter::hit($minute, 60);

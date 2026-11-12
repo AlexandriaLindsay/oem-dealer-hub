@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react'
-import { Check, Copy, KeyRound, Link2, Webhook as WebhookIcon } from 'lucide-react'
+import { Check, Copy, KeyRound, Link2, MapPin, Webhook as WebhookIcon } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { useApi } from '../lib/useApi'
 import { formatDateTime, useSlug } from '../lib/tenant'
 import { Loading } from '../components/AddForm'
 import { FormError } from '../components/Form'
+import { ErpConnectionPanel } from './ErpConnectionPanel'
+import { StaffAccessBar, StaffChanges, type StaffChange } from './StaffIntegrationNotes'
+import { useCurrentManufacturer } from '../components/Layout'
 
 /*
  * Connecting a manufacturer's ERP, self-serve (owner and admin, Pro):
@@ -51,6 +54,8 @@ interface Integrations {
   webhooks: WebhookRow[]
   deliveries: DeliveryRow[]
   erp_owns: { order_status: boolean; prices: boolean }
+  staff_changes: StaffChange[]
+  staff_access_until: string | null
 }
 
 function asApiError(e: unknown): ApiError {
@@ -60,6 +65,7 @@ function asApiError(e: unknown): ApiError {
 export function IntegrationsPage() {
   const slug = useSlug()
   const { data, error, reload } = useApi<Integrations>(`/m/${slug}/integrations`)
+  const current = useCurrentManufacturer()
   // A key or secret just made: shown once, until dismissed.
   const [reveal, setReveal] = useState<{ title: string; value: string; help: string } | null>(null)
 
@@ -74,12 +80,17 @@ export function IntegrationsPage() {
         Connect your ERP, or any system of yours, to OEM Dealer Hub. Your IT team, or a tool like Power Automate or Make, can do it from here: no meeting needed. If you'd like us to set it up for you, that's quoted separately.
       </p>
 
+      {current?.staff_view && <StaffAccessBar slug={slug} customer={current.name} until={data.staff_access_until} onOpened={reload} />}
+      <StaffChanges changes={data.staff_changes} />
+
       {reveal && <Reveal {...reveal} onDone={() => setReveal(null)} />}
 
       <ApiKeys slug={slug} data={data} onChange={reload} onMade={(key) => setReveal({ title: 'Your new API key', value: key, help: "Copy it now and store it somewhere safe, like your ERP's settings or a password manager. It won't be shown again. If it's lost, revoke it and make another." })} />
       <Webhooks slug={slug} data={data} onChange={reload} onSecret={(secret) => setReveal({ title: 'Your signing secret', value: secret, help: 'Your system uses this to check that each call really came from OEM Dealer Hub (see "For your IT team" below). Copy it now, because it won\'t be shown again. You can make a new one at any time.' })} />
+      <ErpConnectionPanel slug={slug} />
       <Mapping slug={slug} />
       <WhoOwns slug={slug} owns={data.erp_owns} onChange={reload} />
+      <PublicStock slug={slug} />
       <ForYourIt apiBase={data.api_base} events={data.events} />
     </>
   )
@@ -139,7 +150,7 @@ function ApiKeys({ slug, data, onChange, onMade }: { slug: string; data: Integra
 
   async function revoke(k: ApiKeyRow) {
     if (!window.confirm(`Revoke "${k.name}"? Anything using it stops working straight away.`)) return
-    await api.delete(`/m/${slug}/integrations/api-keys/${k.id}`).catch(() => {})
+    await api.delete(`/m/${slug}/integrations/api-keys/${k.id}`).catch((e) => window.alert(asApiError(e).message))
     onChange()
   }
 
@@ -276,7 +287,7 @@ function Webhooks({ slug, data, onChange, onSecret }: { slug: string; data: Inte
   }
 
   async function retry(d: DeliveryRow) {
-    await api.post(`/m/${slug}/integrations/deliveries/${d.id}/retry`).catch(() => {})
+    await api.post(`/m/${slug}/integrations/deliveries/${d.id}/retry`).catch((e) => window.alert(asApiError(e).message))
     onChange()
   }
 
@@ -502,7 +513,107 @@ function MapRows({ rows, label }: { rows: { key: string; name: string; ref: stri
     </div>
   )
 }
+// ---- In stock near you ----
 
+interface PublicStockSettings {
+  enabled: boolean
+  confirmed_only: boolean
+  confirmed_days: number
+  page_url: string
+  feed_url: string
+}
+
+/**
+ * "In stock near you" on their own website: which dealers have which models,
+ * counts only. Pro, owner and admin (feature public_inventory); hidden for
+ * anyone without it.
+ */
+function PublicStock({ slug }: { slug: string }) {
+  const current = useCurrentManufacturer()
+  const allowed = !!current?.features.includes('public_inventory')
+  const { data, reload } = useApi<PublicStockSettings>(allowed ? `/m/${slug}/public-stock` : null)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  if (!allowed || !data) return null
+
+  async function save(patch: Partial<Pick<PublicStockSettings, 'enabled' | 'confirmed_only'>>) {
+    setBusy(true)
+    await api.post(`/m/${slug}/public-stock`, { enabled: data!.enabled, confirmed_only: data!.confirmed_only, ...patch }).catch((e) => window.alert(asApiError(e).message))
+    setBusy(false)
+    reload()
+  }
+
+  const embed = `<iframe src="${data.page_url}" title="Find one in stock" style="width:100%;min-height:720px;border:0" loading="lazy"></iframe>`
+
+  return (
+    <section className="panel" aria-labelledby="stock-title">
+      <div className="card-head">
+        <div>
+          <h2 id="stock-title">
+            <MapPin size={16} aria-hidden className="h-icon" /> In stock near you
+          </h2>
+          <p>Put your dealers' stock on your own website: shoppers find the nearest dealer with the model they want, and call them. Counts only, never serial numbers or prices.</p>
+        </div>
+      </div>
+      <ul className="owns">
+        <li>
+          <label className="switch">
+            <input type="checkbox" role="switch" checked={data.enabled} disabled={busy} onChange={(e) => save({ enabled: e.target.checked })} />
+            <span className="switch-track" aria-hidden />
+            <span>
+              <strong>Show dealer stock publicly</strong>
+              <span className="block muted small">{data.enabled ? 'On: anyone with the link can see which active dealers have which models.' : 'Off: the page and feed show nothing.'}</span>
+            </span>
+          </label>
+        </li>
+        <li>
+          <label className="switch">
+            <input type="checkbox" role="switch" checked={data.confirmed_only} disabled={busy} onChange={(e) => save({ confirmed_only: e.target.checked })} />
+            <span className="switch-track" aria-hidden />
+            <span>
+              <strong>Only stock dealers have confirmed</strong>
+              <span className="block muted small">
+                A machine shows only if its dealer confirmed it in a stock check in the last {data.confirmed_days} days. Dealers who answer stock checks get found; stale stock doesn't send anyone on a wasted trip.
+              </span>
+            </span>
+          </label>
+        </li>
+      </ul>
+      {data.enabled && (
+        <div className="it-docs">
+          <h3>On your website</h3>
+          <p>
+            Paste this where you'd like the stock list, or just link to{' '}
+            <a href={data.page_url} target="_blank" rel="noreferrer">
+              the page
+            </a>
+            :
+          </p>
+          <div className="reveal-row">
+            <code>{embed}</code>
+            <button
+              className="secondary"
+              onClick={() =>
+                navigator.clipboard?.writeText(embed).then(
+                  () => setCopied(true),
+                  () => setCopied(false),
+                )
+              }
+            >
+              {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />} {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <p>
+            Your web developer can use the data directly instead: <code>GET {data.feed_url}</code> (optional <code>?model=</code> and <code>?region=</code>). It's open to any website and refreshes every 5 minutes.
+          </p>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ---- Who's in charge ----
 // ---- Who's in charge ----
 
 /**
@@ -617,7 +728,7 @@ POST  ${apiBase}/prices
       By your item numbers. All or nothing. null = price on request.`}
           </pre>
           <p>
-            Webhook calls carry <code>"source": "api"</code> when the change came in through a key, so your ERP can ignore the echo of its own update.
+            Webhook calls carry <code>"source": "api"</code> when the change came in through a key, and <code>"source": "erp"</code> when we fetched it from your ERP, so your ERP can ignore the echo of its own update.
           </p>
 
           <h3>Webhooks</h3>

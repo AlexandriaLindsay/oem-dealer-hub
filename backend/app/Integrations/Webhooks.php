@@ -21,6 +21,25 @@ use Illuminate\Support\Str;
  */
 class Webhooks
 {
+    /** Set while the ERP connection is making changes (asErp), so the calls say "source": "erp". */
+    private static ?string $source = null;
+
+    /**
+     * Runs $callback as a change that came from their ERP through the ERP
+     * connection: webhooks it fires carry "source": "erp", so their ERP can
+     * ignore the echo of what it just told us.
+     */
+    public static function asErp(callable $callback): mixed
+    {
+        $previous = self::$source;
+        self::$source = 'erp';
+        try {
+            return $callback();
+        } finally {
+            self::$source = $previous;
+        }
+    }
+
     public static function send(string $event, array $data): void
     {
         // Kept, but silent, on a plan without ERP integration - they come back on an upgrade.
@@ -49,8 +68,9 @@ class Webhooks
                 'event' => $event,
                 'created_at' => now()->toIso8601String(),
                 'manufacturer' => Tenant::current()->manufacturer()->slug,
-                // "api" when the change came in through an API key - so their ERP can ignore the echo of its own update.
-                'source' => request()->attributes->has('api_key') ? 'api' : 'app',
+                // "api" when the change came in through an API key, "erp" when the ERP connection fetched it -
+                // so their ERP can ignore the echo of its own update.
+                'source' => self::$source ?? (request()->attributes->has('api_key') ? 'api' : 'app'),
                 'data' => $data,
             ],
             'status' => WebhookDelivery::PENDING,

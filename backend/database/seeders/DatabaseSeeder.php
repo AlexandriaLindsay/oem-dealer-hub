@@ -181,19 +181,19 @@ class DatabaseSeeder extends Seeder
             }
 
             $plan = [
-                // serial, model, dealer, status
-                ['AS4-24001', $s400, $acmePrairie, 'inventory'],
-                ['AS4-24002', $s400, $acmePrairie, 'demo'],
-                ['AS4-24003', $s400, $acmeNorthern, 'sold'],
-                ['AS6-24001', $s600, $acmeNorthern, 'rental'],
-                ['AS6-24002', $s600, null, 'inventory'],
-                ['AR2-24001', $r200, $acmePrairie, 'used'],
-                ['AR2-24002', $r200, null, 'inventory'],
+                // serial, model, dealer, status, days since it shipped (or was built, at the factory) - spread so the aging report has something to show
+                ['AS4-24001', $s400, $acmePrairie, 'inventory', 40],
+                ['AS4-24002', $s400, $acmePrairie, 'demo', 210],
+                ['AS4-24003', $s400, $acmeNorthern, 'sold', 300],
+                ['AS6-24001', $s600, $acmeNorthern, 'rental', 120],
+                ['AS6-24002', $s600, null, 'inventory', 95],
+                ['AR2-24001', $r200, $acmePrairie, 'used', 400],
+                ['AR2-24002', $r200, null, 'inventory', 20],
             ];
 
-            foreach ($plan as $i => [$serial, $model, $link, $status]) {
+            foreach ($plan as $i => [$serial, $model, $link, $status, $days]) {
                 $machine = Machine::add(
-                    ['product_model_id' => $model->id, 'serial_no' => $serial, 'production_no' => 'PO-'.(5100 + $i), 'built_at' => now()->subWeeks(10 - $i)],
+                    ['product_model_id' => $model->id, 'serial_no' => $serial, 'production_no' => 'PO-'.(5100 + $i), 'built_at' => now()->subDays($days + 14), 'shipped_at' => $link ? now()->subDays($days) : null],
                     $link,
                     $owner,
                 );

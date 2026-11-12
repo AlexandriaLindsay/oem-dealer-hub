@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Integrations\ErpSync;
 use App\Integrations\SalesOrderPayload;
 use App\Integrations\Webhooks;
 use App\Tenancy\BelongsToManufacturer;
@@ -102,6 +103,8 @@ class SalesOrder extends Model
 
         // Their ERP hears about it once the transaction commits (Webhooks queues after commit).
         Webhooks::send('sales_order.created', SalesOrderPayload::make($order->fresh()));
+        // And straight into it, if they've connected OEM Dealer Hub to their ERP's API.
+        ErpSync::queuePush($order);
 
         return $order;
     }

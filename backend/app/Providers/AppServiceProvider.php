@@ -70,6 +70,10 @@ class AppServiceProvider extends ServiceProvider
         Password::defaults(fn () => app()->isProduction() ? Password::min(10)->uncompromised() : Password::min(10));
 
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+        // The stock check link in a dealer's email (no sign-in): plenty for a person, a wall for guessing tokens.
+        RateLimiter::for('stock-check-link', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        // "In stock near you": shoppers on a manufacturer's site. Generous per visitor; the page also caches for 5 minutes.
+        RateLimiter::for('public-stock', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
         // The integration API (/api/v1): per key, generous for a nightly sync, a ceiling for a runaway loop.
         // Before the key is checked, so by its hash - or the address, when there's no key.
         RateLimiter::for('api-keys', fn (Request $request) => Limit::perMinute(120)->by($request->bearerToken() ? 'key:'.hash('sha256', $request->bearerToken()) : 'ip:'.$request->ip()));

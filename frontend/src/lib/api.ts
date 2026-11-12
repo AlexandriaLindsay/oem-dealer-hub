@@ -94,6 +94,8 @@ export interface ManufacturerAccess {
   features: string[]
   /** The territories this person is limited to (they see only those dealers); null = every dealer. */
   territories: string[] | null
+  /** OEM Dealer Hub staff looking in: read-only, the API refuses every change. */
+  staff_view: boolean
 }
 
 export interface Me {

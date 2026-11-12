@@ -53,6 +53,20 @@ class EasierSignInTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_signing_in_again_within_a_minute_still_emails_a_code(): void
+    {
+        // Set up by email, then straight back to sign-in: the setup code was used, so a new one must really go.
+        $user = User::factory()->create(['password' => 'a-long-password']);
+        $user->forceFill(['terms_version' => config('dealerdock.legal.version'), 'terms_accepted_at' => now()])->save();
+        $this->actingAs($user)->postJson('/api/two-factor/email');
+        $this->actingAs($user)->postJson('/api/two-factor/email/confirm', ['code' => $this->lastCode($user)])->assertOk();
+        $this->postJson('/api/logout');
+
+        $this->postJson('/api/login', ['email' => $user->email, 'password' => 'a-long-password'])->assertJsonPath('sent', true);
+        Notification::assertSentToTimes($user, TwoFactorCode::class, 2);
+        $this->postJson('/api/login/two-factor', ['code' => $this->lastCode($user)])->assertOk();
+    }
+
     public function test_an_app_user_can_ask_for_an_email_code_instead(): void
     {
         $user = $this->appUser();

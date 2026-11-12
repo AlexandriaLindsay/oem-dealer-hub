@@ -30,7 +30,8 @@ class AuthenticatePlatformStaff extends Authenticate
         abort_unless($user->is_platform_staff, 404);
 
         // An authenticator app specifically: email codes aren't enough for a console that reaches every account.
-        if (! $user->hasAuthenticatorApp()) {
+        // (Except locally with two-factor switched off: User::consoleSkipsTwoFactor.)
+        if (! $user->hasAuthenticatorApp() && ! $user::consoleSkipsTwoFactor()) {
             throw new AuthenticationException('Two-factor required.', $guards, self::appUrl('/setup-2fa'));
         }
 

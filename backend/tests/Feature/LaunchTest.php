@@ -38,7 +38,7 @@ class LaunchTest extends TestCase
             ->assertJsonPath('plans.1.extras.2', ['label' => 'Territories', 'coming' => false])
             ->assertJsonPath('plans.1.extras.3', ['label' => 'Your own colours', 'coming' => false])
             ->assertJsonPath('plans.1.extras.4', ['label' => 'Your own subdomain', 'coming' => true])
-            ->assertJsonPath('legal.updated_on', '2026-11-11')
+            ->assertJsonPath('legal.updated_on', '2026-11-12')
             ->assertJsonPath('legal.version', config('dealerdock.legal.version'))
             ->assertJsonPath('legal.reviewed', false)
             ->assertJsonPath('turnstile_site_key', null);
